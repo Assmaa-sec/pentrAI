@@ -51,10 +51,10 @@ The exercise block at the bottom of each file contains the challenge name, descr
 DEEPSEEK
   RooCode
     [X] Binary
-    [ ] Blockchain
+    [X] Blockchain
     [ ] Crypto
     [ ] Forensics
-    [ ] General
+    [X] General
     [X] Reversing
     [ ] Web
 
