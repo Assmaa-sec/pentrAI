@@ -333,13 +333,78 @@ class HexStrikeClient:
             logger.debug(f"📡 POST {url} with data: {json_data}")
             response = self.session.post(url, json=json_data, timeout=self.timeout)
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+
+            # --- Feedback loop enrichment (hexfix #12) ---
+            result = self._enrich_result(result, tool_name, endpoint)
+
+            return result
         except requests.exceptions.RequestException as e:
             logger.error(f"🚫 Request failed: {str(e)}")
             return {"error": f"Request failed: {str(e)}", "success": False}
         except Exception as e:
             logger.error(f"💥 Unexpected error: {str(e)}")
             return {"error": f"Unexpected error: {str(e)}", "success": False}
+
+    def _enrich_result(self, result: Dict[str, Any], tool_name: str, endpoint: str) -> Dict[str, Any]:
+        """Add confidence_score and suggest_next_tool to tool results for LLM feedback loop"""
+        try:
+            # --- Confidence score: estimate if output is useful ---
+            score = 0.5  # default neutral
+            stdout = result.get("stdout", "")
+            stderr = result.get("stderr", "")
+            error = result.get("error", "")
+            success = result.get("success", None)
+
+            if success is True:
+                score = 0.7
+                # Boost if output contains meaningful data
+                if stdout and len(stdout.strip()) > 50:
+                    score = 0.8
+                # Boost if flag-like patterns found
+                if any(p in stdout for p in ["CTF{", "picoCTF{", "flag{", "FLAG{", "htb{"]):
+                    score = 1.0
+            elif success is False or error:
+                score = 0.2
+                if "timeout" in str(error).lower():
+                    score = 0.1
+                if "connection refused" in str(error).lower():
+                    score = 0.05
+            # Penalize empty output
+            if not stdout and not error and success is not False:
+                score = 0.3
+
+            result["confidence_score"] = round(score, 2)
+
+            # --- Suggest next tool based on current tool and output ---
+            next_tool_map = {
+                "nmap_scan": "gobuster_scan" if "80/tcp" in stdout or "443/tcp" in stdout or "8080/tcp" in stdout else "nmap_advanced_scan",
+                "gobuster_scan": "nikto_scan",
+                "nikto_scan": "http_framework_test",
+                "checksec_analyze": "ghidra_analysis" if "NX" in stdout else "gdb_peda_debug",
+                "strings_extract": "ghidra_analysis",
+                "ghidra_analysis": "pwntools_exploit",
+                "radare2_analyze": "pwntools_exploit",
+                "gdb_peda_debug": "pwntools_exploit",
+                "binwalk_analyze": "foremost_carving",
+                "foremost_carving": "exiftool_extract",
+                "exiftool_extract": "steghide_analysis",
+                "volatility3_analyze": "volatility3_analyze",  # run with different plugin
+                "sqlmap_scan": "blind_sqli_extractor" if "blind" in stdout.lower() else None,
+                "http_framework_test": "sqlmap_scan" if score < 0.5 else None,
+                "dalfox_xss_scan": "browser_agent_inspect",
+                "hashcat_crack": None,
+                "john_crack": None,
+            }
+
+            suggestion = next_tool_map.get(tool_name)
+            if suggestion and score < 0.95:  # Don't suggest if we already found the flag
+                result["suggest_next_tool"] = suggestion
+
+        except Exception:
+            pass  # Never let enrichment break the result
+
+        return result
 
     def execute_command(self, command: str, use_cache: bool = True) -> Dict[str, Any]:
         """
@@ -492,18 +557,18 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
     # ============================================================================
 
     @mcp.tool()
-    def nmap_scan(target: str, scan_type: str = "-sV", ports: str = "", additional_args: str = "") -> Dict[str, Any]:
+    def nmap_scan(target: str, scan_type: str = "-sCV", ports: str = "-", additional_args: str = "--min-rate 5000 -T4 -Pn") -> Dict[str, Any]:
         """
-        Execute an enhanced Nmap scan against a target with real-time logging.
+        Execute an enhanced Nmap scan against a target. Defaults to full port range scan for CTF challenges.
 
         Args:
             target: The IP address or hostname to scan
-            scan_type: Scan type (e.g., -sV for version detection, -sC for scripts)
-            ports: Comma-separated list of ports or port ranges
-            additional_args: Additional Nmap arguments
+            scan_type: Scan type (default: -sCV for version+script detection)
+            ports: Port specification (default: '-' for all 65535 ports; use '80,443' for specific ports)
+            additional_args: Additional Nmap arguments (default: '--min-rate 5000 -T4 -Pn' for fast CTF scanning)
 
         Returns:
-            Scan results with enhanced telemetry
+            Scan results with open ports summary and enhanced telemetry
         """
         data = {
             "target": target,
@@ -1179,15 +1244,17 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
     @mcp.tool()
     def execute_python_script(script: str, env_name: str = "default", filename: str = "") -> Dict[str, Any]:
         """
-        Execute a Python script in a virtual environment on the HexStrike server.
+        Execute a Python script in a virtual environment. Script is syntax-checked before execution
+        and missing imports are auto-installed. Returns clear error details on failure.
+        NOTE: For binary exploitation (buffer overflows, format strings, ROP chains), use pwntools_exploit instead.
 
         Args:
-            script: Python script content to execute
+            script: Python script content to execute (must not be empty, must be valid Python syntax)
             env_name: Name of the virtual environment
             filename: Custom script filename (auto-generated if empty)
 
         Returns:
-            Script execution results
+            Script execution results with error_details and partial_output on failure
         """
         data = {
             "script": script,
@@ -2258,18 +2325,20 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
                         target_host: str = "", target_port: int = 0,
                         exploit_type: str = "local", additional_args: str = "") -> Dict[str, Any]:
         """
-        Execute Pwntools for exploit development and automation.
+        PRIMARY TOOL for ALL binary exploitation. Use this instead of execute_python_script for binary challenges.
+        Handles buffer overflows, format string attacks, ROP chains, ret2libc, heap exploitation, and shellcode injection.
+        Supports both local binary exploitation and remote connections. Always prefer this tool for binary/pwn CTF challenges.
 
         Args:
-            script_content: Python script content using pwntools
-            target_binary: Local binary to exploit
-            target_host: Remote host to connect to
-            target_port: Remote port to connect to
-            exploit_type: Type of exploit (local, remote, format_string, rop)
-            additional_args: Additional arguments
+            script_content: Pwntools exploit script (use 'from pwn import *' — pwntools is pre-installed)
+            target_binary: Path to local binary to exploit (e.g. './vuln')
+            target_host: Remote host for remote exploits (e.g. 'challenge.ctf.com')
+            target_port: Remote port for remote exploits (e.g. 31337)
+            exploit_type: Exploit category — 'local' (default), 'remote', 'format_string', or 'rop'
+            additional_args: Extra arguments passed to the binary
 
         Returns:
-            Exploit execution results
+            Exploit execution results including stdout/stderr output
         """
         data = {
             "script_content": script_content,
@@ -3411,16 +3480,18 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
     @mcp.tool()
     def volatility3_analyze(memory_file: str, plugin: str, output_file: str = "", additional_args: str = "") -> Dict[str, Any]:
         """
-        Execute Volatility3 for advanced memory forensics with enhanced logging.
+        Execute Volatility3 for memory forensics. Output is auto-truncated to prevent context overflow —
+        returns first 50 + last 20 lines for large results, and highlights suspicious entries
+        (flag, secret, hidden, inject, malware, cmd.exe, powershell, /bin/sh).
 
         Args:
             memory_file: Path to memory dump file
-            plugin: Volatility3 plugin to execute
-            output_file: Output file path
+            plugin: Volatility3 plugin (e.g. windows.pslist, windows.filescan, linux.bash)
+            output_file: Output file path (optional)
             additional_args: Additional Volatility3 arguments
 
         Returns:
-            Advanced memory forensics results
+            Memory forensics results with suspicious_entries highlighted when found
         """
         data = {
             "memory_file": memory_file,
@@ -3439,16 +3510,17 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
     @mcp.tool()
     def foremost_carving(input_file: str, output_dir: str = "/tmp/foremost_output", file_types: str = "", additional_args: str = "") -> Dict[str, Any]:
         """
-        Execute Foremost for file carving with enhanced logging.
+        Execute Foremost for file carving. Automatically lists all recovered files with a summary
+        including file counts by type and highlights files with flag/secret/key in the name.
 
         Args:
-            input_file: Input file or device to carve
-            output_dir: Output directory for carved files
-            file_types: File types to carve (jpg,gif,png,etc.)
+            input_file: Input file or device to carve (disk image, binary, pcap, etc.)
+            output_dir: Output directory for carved files (default: /tmp/foremost_output)
+            file_types: File types to carve (e.g. 'jpg,gif,png,pdf,zip')
             additional_args: Additional Foremost arguments
 
         Returns:
-            File carving results
+            Carving results with recovered_files list and recovery_summary (total count, types, notable files)
         """
         data = {
             "input_file": input_file,
@@ -5366,20 +5438,24 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
 
     @mcp.tool()
     def http_framework_test(url: str, method: str = "GET", data: dict = {},
-                           headers: dict = {}, cookies: dict = {}, action: str = "request") -> Dict[str, Any]:
+                           headers: dict = {}, cookies: dict = {}, action: str = "request",
+                           follow_redirects: bool = True, json_data: dict = {}) -> Dict[str, Any]:
         """
-        Enhanced HTTP testing framework (Burp Suite alternative) for comprehensive web security testing.
+        Enhanced HTTP testing framework for web security testing. Maintains session cookies across calls.
+        Supports redirects, JSON/form data, and returns raw response text (not just JSON).
 
         Args:
-            url: Target URL to test
+            url: Target URL (include full URL with port, e.g. http://host:31337/path)
             method: HTTP method (GET, POST, PUT, DELETE, etc.)
-            data: Request data/parameters
+            data: Form data parameters (sent as application/x-www-form-urlencoded)
             headers: Custom headers
-            cookies: Custom cookies
+            cookies: Custom cookies (merged with session cookies from previous calls)
             action: Action to perform (request, spider, proxy_history, set_rules, set_scope, repeater, intruder)
+            follow_redirects: Follow HTTP redirects (default: true)
+            json_data: JSON request body (sent as application/json, use instead of data for JSON APIs)
 
         Returns:
-            HTTP testing results with vulnerability analysis
+            HTTP response with status_code, headers, content (raw text), and vulnerability analysis
         """
         data_payload = {
             "url": url,
@@ -5387,7 +5463,9 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
             "data": data,
             "headers": headers,
             "cookies": cookies,
-            "action": action
+            "action": action,
+            "follow_redirects": follow_redirects,
+            "json_data": json_data
         }
 
         logger.info(f"{HexStrikeColors.FIRE_RED}🔥 Starting HTTP Framework {action}: {url}{HexStrikeColors.RESET}")
@@ -5620,6 +5698,88 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
         else:
             logger.error(f"{HexStrikeColors.ERROR}❌ Error recovery test failed{HexStrikeColors.RESET}")
 
+        return result
+
+    # ============================================================================
+    # CHALLENGE DECOMPOSITION (hexfix #4) — Structured attack planning for Hard challenges
+    # ============================================================================
+
+    @mcp.tool()
+    def decompose_challenge(description: str, category: str = "misc", difficulty: str = "unknown",
+                           source_files: list = [], hint: str = "") -> Dict[str, Any]:
+        """
+        Decompose a CTF challenge into a phased attack plan with checkpoints. MUST be called before
+        any exploitation tools on Hard challenges. Returns vulnerability class hypotheses, step-by-step
+        phases with time budgets, and mid-session checkpoints that force re-evaluation.
+
+        Args:
+            description: Full challenge description and any visible information
+            category: Challenge category (web, crypto, pwn, forensics, rev, general_skills, blockchain)
+            difficulty: Challenge difficulty (easy, medium, hard)
+            source_files: List of source file names provided with the challenge
+            hint: Any hints provided
+
+        Returns:
+            Phased attack plan with checkpoints, time budgets, and vulnerability class hypotheses
+        """
+        data = {
+            "description": description,
+            "category": category,
+            "difficulty": difficulty,
+            "source_files": source_files,
+            "hint": hint
+        }
+        logger.info(f"🧩 Decomposing challenge: {category}/{difficulty}")
+        result = hexstrike_client.safe_post("api/ctf/decompose-challenge", data)
+        if result.get("success"):
+            phases = result.get("attack_plan", {}).get("total_phases", 0)
+            logger.info(f"✅ Challenge decomposed into {phases} phases")
+        else:
+            logger.error(f"❌ Challenge decomposition failed")
+        return result
+
+    # ============================================================================
+    # BLIND SQL INJECTION EXTRACTOR (hexfix #8) — Automated data extraction
+    # ============================================================================
+
+    @mcp.tool()
+    def blind_sqli_extractor(url: str, parameter: str, sql_query: str, true_condition: str,
+                             method: str = "GET", headers: dict = {}, cookies: dict = {},
+                             max_length: int = 100) -> Dict[str, Any]:
+        """
+        Automated blind SQL injection data extractor. Uses binary search to extract data
+        character by character. Handles both boolean-based blind SQLi extraction.
+
+        Args:
+            url: Target URL with the vulnerable endpoint
+            parameter: The vulnerable parameter name (e.g. 'username', 'id')
+            sql_query: SQL subquery to extract data from (e.g. '(SELECT flag FROM flags LIMIT 1)')
+            true_condition: String present in the HTTP response when the injected condition is TRUE
+            method: HTTP method — GET or POST (default: GET)
+            headers: Custom HTTP headers
+            cookies: Custom cookies
+            max_length: Maximum characters to extract (default: 100)
+
+        Returns:
+            Extracted data string with length and extraction metadata
+        """
+        data = {
+            "url": url,
+            "parameter": parameter,
+            "sql_query": sql_query,
+            "true_condition": true_condition,
+            "method": method,
+            "headers": headers,
+            "cookies": cookies,
+            "max_length": max_length
+        }
+        logger.info(f"💉 Starting blind SQLi extraction: {url} param={parameter}")
+        result = hexstrike_client.safe_post("api/ctf/blind-sqli-extract", data)
+        if result.get("success"):
+            extracted = result.get("extracted_data", "")
+            logger.info(f"✅ Extracted {len(extracted)} characters via blind SQLi")
+        else:
+            logger.error(f"❌ Blind SQLi extraction failed")
         return result
 
     return mcp

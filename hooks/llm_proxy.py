@@ -160,6 +160,37 @@ def proxy(path: str):
     except Exception:
         body = {}
 
+    # --- 5ire / tool constraint enforcement (hexfix #3) ---
+    # Inject system-level constraint into chat completions to steer LLMs
+    # toward hexstrike tools and away from native client tools
+    if path.startswith("chat/completions") and isinstance(body.get("messages"), list):
+        config = _load_config()
+        if _is_session_active(config):
+            constraint_msg = {
+                "role": "system",
+                "content": (
+                    "CRITICAL CONSTRAINT: You MUST use ONLY tools prefixed with 'mcp--hexstrike--' or 'hexstrike:'. "
+                    "Do NOT use Bash, Read, Write, execute_command, or any native/built-in client tools. "
+                    "These native tools are disabled in this environment. "
+                    "For binary exploitation use mcp--hexstrike--pwntools_exploit. "
+                    "For Python scripts use mcp--hexstrike--execute_python_script. "
+                    "For HTTP requests use mcp--hexstrike--http_framework_test. "
+                    "If you need to run a shell command, use mcp--hexstrike--execute_command."
+                )
+            }
+            # Insert after existing system messages but before user messages
+            messages = body["messages"]
+            insert_idx = 0
+            for i, m in enumerate(messages):
+                if m.get("role") == "system":
+                    insert_idx = i + 1
+                else:
+                    break
+            messages.insert(insert_idx, constraint_msg)
+            body["messages"] = messages
+            raw_body = json.dumps(body).encode("utf-8")
+            fwd_headers["Content-Length"] = str(len(raw_body))
+
     is_streaming = bool(body.get("stream", False))
 
     upstream = requests.request(

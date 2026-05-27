@@ -239,3 +239,203 @@ HEXSTRIKE ADDED FEATURES
  
   After all exercises in a category are done for a given client:
     Open results/README and add ✅ to the corresponding client/category cell.
+
+
+HEXSTRIKE SOURCE CODE FIXES
+============================
+Based on hexfix.md failure analysis. Applied 2026-05-27.
+
+FIX 1 — execute_python_script pre-validation and auto-install (hexfix #1)
+   Addresses 77.8% failure rate (1,357/1,744 uses). The most broken tool in the system.
+
+   File: hexstrike_server.py — /api/python/execute endpoint (~line 14804)
+   What was added:
+   - Rejects empty/whitespace-only scripts with clear error message
+   - Pre-execution syntax check using compile() — returns line number, column, and offending text on SyntaxError
+   - Auto-detects imported modules via regex, checks if installed, auto-installs missing ones via pip
+   - Includes pip_name_map for common mismatches (Crypto→pycryptodome, PIL→Pillow, pwn→pwntools, etc.)
+   - On failure: surfaces stderr as error_details and partial stdout as partial_output for LLM self-correction
+
+   File: hexstrike_mcp.py — execute_python_script tool (~line 1180)
+   What was added:
+   - Updated description: notes syntax checking, auto-install, error details on failure
+   - Steers LLMs away: "For binary exploitation, use pwntools_exploit instead"
+
+
+FIX 2 — pwntools_exploit description rewrite (hexfix #7)
+   Addresses Binary category 42.9% success rate. pwntools_exploit has 81.6% success but LLMs
+   choose execute_python_script instead because the description was too vague.
+
+   File: hexstrike_mcp.py — pwntools_exploit tool (~line 2257)
+   What was added:
+   - Description rewritten to: "PRIMARY TOOL for ALL binary exploitation"
+   - Lists all supported exploit types: buffer overflows, format strings, ROP, ret2libc, heap, shellcode
+   - Explicitly states "Use this instead of execute_python_script for binary challenges"
+   - Improved arg descriptions: target_binary example './vuln', host/port examples, pwntools import note
+
+
+FIX 3 — nmap defaults changed for CTF scanning (hexfix #11)
+   Addresses 66.7% failure rate (18/27 uses). Default scan missed non-standard CTF ports.
+
+   File: hexstrike_mcp.py — nmap_scan tool (~line 495)
+   What was added:
+   - Default ports changed from '' (top-1000) to '-' (all 65535 ports)
+   - Default scan_type changed from '-sV' to '-sCV' (version + scripts)
+   - Default additional_args changed from '' to '--min-rate 5000 -T4 -Pn' (fast, no ping)
+   - Updated description: notes full port range default for CTF
+
+   File: hexstrike_server.py — /api/tools/nmap endpoint (~line 10633)
+   What was added:
+   - Server-side defaults updated to match: ports='-', additional_args='--min-rate 5000 -T4 -Pn'
+   - Post-scan: extracts open ports via regex and returns open_ports_summary and open_ports list
+     at top level of response for quick LLM parsing
+
+
+FIX 4 — http_framework_test session persistence and redirect support (hexfix #6)
+   Addresses 69.9% failure rate (121/173 uses). Primary web tool was broken on redirects,
+   non-standard ports, and non-JSON responses.
+
+   File: hexstrike_mcp.py — http_framework_test tool (~line 5368)
+   What was added:
+   - New params: follow_redirects (bool, default true), json_data (dict, for JSON APIs)
+   - Description rewritten: notes session cookie persistence, redirect support, raw text responses
+   - url arg clarified: "include full URL with port, e.g. http://host:31337/path"
+
+   File: hexstrike_server.py — /api/tools/http-framework endpoint (~line 14345)
+   What was added:
+   - Passes follow_redirects and json_data through to intercept_request
+
+   File: hexstrike_server.py — HTTPTestingFramework.intercept_request (~line 13608)
+   What was added:
+   - New params: follow_redirects (controls allow_redirects), json_data (sends as application/json)
+   - Unified request dispatch via session.request() instead of separate get/post/put/delete methods
+   - Returns redirect_chain and final_url when redirects occurred
+   - Returns session_cookies in every response for transparency
+   - Specific error handling for ConnectionError ("verify host and port") and Timeout (30s message)
+
+
+FIX 5 — foremost_carving post-processing (hexfix #9)
+   Addresses Forensics 55.6% success rate. LLMs couldn't parse foremost output directory.
+
+   File: hexstrike_server.py — /api/tools/foremost endpoint (~line 15581)
+   What was added:
+   - After carving: walks output directory and builds recovered_files list (path, name, size, type)
+   - Returns recovery_summary: total count, file type breakdown, notable files (flag/secret/key/pass/hidden/admin)
+   - Limited to 100 file entries to prevent response bloat
+
+   File: hexstrike_mcp.py — foremost_carving tool (~line 3440)
+   What was added:
+   - Description updated to describe auto-listing and summary behavior
+
+
+FIX 6 — volatility3_analyze output truncation (hexfix #9)
+   Addresses Forensics Hard failures. Volatility output too large for LLM context.
+
+   File: hexstrike_server.py — /api/tools/volatility3 endpoint (~line 15541)
+   What was added:
+   - Auto-truncates stdout >8000 chars: keeps header (5 lines) + first 50 + last 20 data lines
+   - Sets truncated=true and total_lines when truncation applied
+   - Scans all lines for suspicious keywords (flag, secret, hidden, inject, malware, cmd.exe, powershell, /bin/sh)
+   - Returns suspicious_entries list (up to 20) when found
+
+   File: hexstrike_mcp.py — volatility3_analyze tool (~line 3412)
+   What was added:
+   - Description updated to describe truncation behavior and suspicious entry highlighting
+
+
+FIX 7 — 5ire tool constraint enforcement via LLM proxy (hexfix #3)
+   Addresses 5ire performing at half the rate of RooCode (30% vs 60%). Same model, same tools,
+   2x gap purely from the client. 5ire mixes native tools with hexstrike tools despite constraints.
+
+   File: hooks/llm_proxy.py — proxy() route (~line 147)
+   What was added:
+   - During active sessions, injects a system message into every chat completion request
+   - Message tells the LLM: "You MUST use ONLY tools prefixed with mcp--hexstrike--"
+   - Explicitly lists disabled native tools (Bash, Read, Write, execute_command)
+   - Maps common needs to hexstrike equivalents (binary→pwntools_exploit, HTTP→http_framework_test)
+   - Inserted after existing system messages, before user messages, to maximize influence
+   - Only active during timed sessions (between start_timer and stop_timer)
+   - raw_body and Content-Length header updated after injection
+
+
+FIX 8 — Hard challenge decomposition tool (hexfix #4)
+   Addresses Hard challenges 27.4% success rate. No structured approach — LLMs attack
+   the full challenge at once with no intermediate checkpoints.
+
+   File: hexstrike_server.py — /api/ctf/decompose-challenge endpoint (~line 16680)
+   What was added:
+   - New endpoint that decomposes a challenge into phased attack plan
+   - Category-specific vulnerability class hypotheses (web: 13 classes, crypto: 7, pwn: 8, etc.)
+   - Hard challenges get 4 phases: reconnaissance→validation→exploit_development→execution
+   - Each phase has time_budget_seconds and explicit checkpoint questions
+   - Checkpoints force the LLM to STOP and re-evaluate before proceeding
+   - Easy/Medium challenges get simplified 2-phase plan
+   - Returns critical_rules: analyze before acting, state hypothesis, diagnose failures
+
+   File: hexstrike_mcp.py — decompose_challenge tool (~line 5638)
+   What was added:
+   - New MCP tool wrapping the decompose-challenge endpoint
+   - Description: "MUST be called before any exploitation tools on Hard challenges"
+   - Returns phased attack plan with checkpoints, time budgets, vulnerability class hypotheses
+
+
+FIX 9 — Blind SQL injection extractor tool (hexfix #8)
+   Addresses Web Hard challenges failing on multi-step exploits. Blind SQLi requires
+   iterative binary search that LLMs write as one-shot scripts which don't iterate.
+
+   File: hexstrike_server.py — /api/ctf/blind-sqli-extract endpoint (~line 16830)
+   What was added:
+   - Automated blind boolean-based SQL injection data extractor
+   - Uses binary search on ASCII values to extract data character by character
+   - Supports GET and POST methods, custom headers and cookies
+   - Configurable max_length and charset (ascii/full byte range)
+   - Uses requests.Session for cookie persistence across extraction requests
+   - Returns extracted_data string, length, and extraction metadata
+   - Handles timeout gracefully with partial_data return
+
+   File: hexstrike_mcp.py — blind_sqli_extractor tool (~line 5680)
+   What was added:
+   - New MCP tool wrapping the blind-sqli-extract endpoint
+   - Description explains boolean-based blind SQLi binary search approach
+   - Args documented with examples (sql_query, true_condition)
+
+
+FIX 10 — Experiment prompt strategy enforcement (hexfix #10)
+   Addresses Exp 1 "free solve" having the most tool-call waste. LLMs try random approaches
+   without a plan, burning time and context.
+
+   File: hexstrike_server.py — /api/ctf/get-experiment-prompt endpoint (~line 16980)
+   What was added:
+   - New endpoint that generates experiment prompts with mandatory strategy preamble
+   - ALL experiment variants (1, 2, 3) now include a MANDATORY FIRST STEP:
+     state vulnerability class, planned approach, and first tool choice with reasoning
+   - Rules enforced: summarize tool output in 3 lines, diagnose failures before switching tools
+   - Source file rule: if has_source_files=true, adds "read ALL source files before any tool"
+   - Hard difficulty rule: "after first 3 tool calls, STOP and re-evaluate"
+   - Exp 2 adds: "Using any non-hexstrike tool invalidates this experiment"
+   - Exp 3 adds: "ALL native tools are DISABLED and will FAIL if called"
+
+
+FIX 11 — Tool output feedback loop (hexfix #12)
+   Addresses cross-cutting issue: no mechanism to validate tool output or guide next steps.
+
+   File: hexstrike_mcp.py — HexStrikeClient._enrich_result() method (~line 345)
+   What was added:
+   - New _enrich_result() method called on every safe_post() response
+   - confidence_score (0.0-1.0): estimates if output is useful
+     - 1.0 = flag pattern found in output
+     - 0.8 = success with substantial output (>50 chars)
+     - 0.7 = success
+     - 0.3 = empty output
+     - 0.2 = error
+     - 0.1 = timeout
+     - 0.05 = connection refused
+   - suggest_next_tool: based on current tool name and output content
+     - nmap→gobuster (if web ports found) or nmap_advanced_scan
+     - checksec→ghidra (if NX enabled) or gdb_peda_debug
+     - ghidra/radare2/gdb→pwntools_exploit
+     - binwalk→foremost_carving→exiftool
+     - sqlmap→blind_sqli_extractor (if blind detected)
+     - dalfox→browser_agent_inspect
+   - Suppressed when flag already found (score >= 0.95)
+   - Wrapped in try/except so enrichment never breaks tool results
