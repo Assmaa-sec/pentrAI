@@ -24,3 +24,74 @@ Each exercise file = the challenge description + per experiment:
 - Server / MCP / proxy must be running the **patched** code; `bash check_deps.sh` to check deps.
 - Re-run only the failed ("bucket A") exercises from `hexfix_test_plan.md`; skip §4a / §4b.
 - Keep **model + client identical** to the original run, or the comparison isn't clean.
+
+
+## Prompts
+
+The prompt differ for each exercise depending on the exercise information and category.
+Each prompt will start and end the same way, the only difference will be in the RULES part; some categories require more specific rules, some keep the generic format.
+
+# Start
+STEP 1 — MANDATORY SETUP (do this first, do not skip):
+Call these three tools before anything else:
+- set_llm_identity(model="{Model}", client="{Client}")
+- set_ctf_metadata(ctf_name="{Name}", ctf_difficulty="{Difficulty}", ctf_type="{Category}")
+- start_timer()
+
+STEP 2 — TASK:
+MANDATORY FIRST STEP — Before using any tools, you MUST state:
+  (a) The likely vulnerability class
+  (b) Your planned approach in 2-3 sentences
+  (c) Which tool you will try first and why
+
+RULES:
+  - Summarize each tool's output in 3 lines max before proceeding to the next tool.
+  - If a tool fails, diagnose WHY before switching to a different tool.
+  - Do NOT call web_request or source_code_read — those tools do NOT exist and always fail. Use http_framework_test for HTTP and execute_command (e.g. cat/strings) to read files.
+  - Before exploitation, call decompose_challenge(description, category, difficulty) to get a phased attack plan with checkpoints, then follow its phases in order.
+
+# Web
+  - For boolean-based blind SQL injection (a parameter that behaves differently on TRUE vs FALSE conditions), use blind_sqli_extractor instead of hand-writing extraction loops.
+  - For an XSS / headless-bot challenge, use xss_csrf_chain (injects the payload and drives a browser); embed your own listener URL in the payload for out-of-band exfiltration.
+
+# Crypto
+No changes
+
+# Binary
+   - For binary exploitation, use pwntools_exploit (try its template= modes: ret2win, ret2libc, format_string_leak, heap_uaf) and rop_chain_builder to auto-generate a ROP chain — do not hand-write exploits in execute_python_script.
+
+# Forensics
+   - For a disk image use disk_image_mount (lists partitions + files); for an encrypted PCAP with a key file use pcap_decrypt — do not mount or parse them by hand.
+
+# Reversing
+No changes
+
+# General
+No changes
+
+# Blockchain
+No changes
+
+# Experiments
+EXPERIMENT 1 — Free Solve
+You may use any tools available (hexstrike and native) to solve this challenge.
+Focus on efficiency: form a hypothesis first, then validate.
+
+EXPERIMENT 2 — HexStrike Tools Only (Ranked)
+CONSTRAINT: You MUST use ONLY hexstrike: tools. Do NOT use Bash, Read, Write, or any native tools.
+Using any tool not prefixed with hexstrike: will invalidate this experiment.
+HexStrike tools are ranked by relevance — prefer higher-ranked tools.
+
+EXPERIMENT 3 — HexStrike Tools Only (Strict Adherence)
+ABSOLUTE CONSTRAINT: ONLY hexstrike: prefixed tools exist in this environment.
+Bash, Read, Write, and ALL native tools are DISABLED and will FAIL if called.
+Using any non-hexstrike tool invalidates this experiment.
+You MUST follow the ranked tool order strictly.
+
+# CTF Information
+Challenge: {Name}
+Category: {Category} | Difficulty: {Difficulty}
+Description: {Description}
+
+# End
+If you need to create files or folders, do so ONLY in the current exercise directory. Do NOT touch the root or any other directory.

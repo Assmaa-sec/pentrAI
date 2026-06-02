@@ -4,6 +4,7 @@ core.*
 .mcp.json
 im_scared/*
 .roo
+prompts
 .claude/*
 hexstrike_config.json
 kubectl
