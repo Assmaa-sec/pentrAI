@@ -77,7 +77,6 @@ NATIVE TOOL | tool=execute_command | params=command=chmod +x results/Deepseek/Ro
 ── TEST RESULT: [SUCCESSFUL] ──
 
 [Experiment 2]
-── TEST RESULT: [SUCCESSFUL/FAILED/PARTIAL] ──
 2026-04-14 03:53:04,751 | ── SESSION e32ccc95 ──
 ── START SETUP ──
 TOOL CALL | tool=set_llm_identity | source=hexstrike | params=model=deepseek-chat client=roo-code

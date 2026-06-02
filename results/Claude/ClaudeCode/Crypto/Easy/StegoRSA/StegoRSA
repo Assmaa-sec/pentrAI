@@ -42,7 +42,7 @@ HEXSTRIKE TOOL | tool=execute_command | params=command=python3 << 'EOF' | use_ca
 HEXSTRIKE TOOL | tool=execute_command | params=command=DIR="/home/kali/hexstrike-ai-1/results/Claude/ClaudeCode/Cry… | use_cache=True
 ── TIMER_STOP ──
 2026-04-26 22:52:59,947 | ── END SESSION b8297222 ── | total_time_spent=185.6s
-── TEST RESULT: [SUCCESSFUL/FAILED/PARTIAL] ──
+── TEST RESULT: [SUCCESSFUL] ──
 
 [Experiment 2]
 
@@ -63,7 +63,7 @@ HEXSTRIKE TOOL | tool=execute_command | params=command=python3 << 'EOF' | use_ca
 HEXSTRIKE TOOL | tool=execute_command | params=command=DIR="/home/kali/hexstrike-ai-1/results/Claude/ClaudeCode/Cry… | use_cache=True
 ── TIMER_STOP ──
 2026-04-26 22:52:59,947 | ── END SESSION b8297222 ── | total_time_spent=185.6s
-── TEST RESULT: [SUCCESSFUL/FAILED/PARTIAL] ──
+── TEST RESULT: [SUCCESSFUL] ──
 
 [Experiment 3]
 
