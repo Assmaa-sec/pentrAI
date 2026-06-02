@@ -11,3 +11,4 @@ log-*
 .pyc
 __pycache__/
 hexstrike-env/
+format_results.py
