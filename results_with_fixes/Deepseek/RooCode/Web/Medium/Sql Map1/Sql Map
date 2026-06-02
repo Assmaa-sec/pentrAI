@@ -1,0 +1,15 @@
+You’ve been hired by a shadowy group of pentesters who love a good puzzle. The system looks ordinary, but appearances lie. Somewhere inside, sloppy code and legacy hashing practices left a tiny, perfect doorway for an attacker. Your mission — should you choose to accept it — is to slip through that doorway, act as a legit user and retrieve the secret flag. Login here and find the flag!
+http://lonely-island.picoctf.net:[PORT]/
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [PARTIAL] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [PARTIAL] ──
+── New log ──

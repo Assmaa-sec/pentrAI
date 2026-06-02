@@ -1,0 +1,16 @@
+It's a race against time.
+Solve the binary exploit ASAP.
+ssh -p [PORT] ctf-player@green-hill.picoctf.net using password 1db87a14
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

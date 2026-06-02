@@ -1,0 +1,15 @@
+I accidentally left the debug script in place… Well, I think that's fine - No one could possibly access my super secure directory two printers are on [PORT], one private, one public.
+you can try $ nc -vz dolphin-cove.picoctf.net [PORT]
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

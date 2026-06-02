@@ -1,0 +1,16 @@
+Our intern thought it was a great idea to vibe code a secure dot product server using our AES key. Having taken a class in linear algebra, they're confident the server can't ever leak our key, but I'm not so sure...
+nc lonely-island.picoctf.net [PORT]
+The source code is provided with the prompt.
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

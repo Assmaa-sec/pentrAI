@@ -1,0 +1,15 @@
+A Secure Printer is now in use. I’m confident no one can leak the message again... or can you? two printers are on [PORT], one private, one public.
+you can try $ nc -vz green-hill.picoctf.net [PORT]
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

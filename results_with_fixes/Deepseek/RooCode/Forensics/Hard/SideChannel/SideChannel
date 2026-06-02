@@ -1,0 +1,16 @@
+There's something fishy about this PIN-code checker, can you figure out the PIN and get the flag?
+See the PIN checker program attached to the prompt.
+Once you've figured out the PIN (and gotten the checker program to accept it), connect to the master server using nc saturn.picoctf.net [PORT] and provide it the PIN to get your flag.
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

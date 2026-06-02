@@ -1,0 +1,16 @@
+Your goal is to find the flag.
+nc wily-courier.picoctf.net [PORT]
+You will find the python script attached.
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

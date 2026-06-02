@@ -1,0 +1,19 @@
+S/MIME means secure email, right?
+Send your very secure emails here
+http://activist-birds.picoctf.net:[PORT]/
+Username: user@ses
+Source code: secure-email-service.tar
+Please test your exploits against a local instance using the included Docker Compose file before running against remote, thanks!
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

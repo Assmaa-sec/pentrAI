@@ -1,0 +1,13 @@
+Lyrics jump from verses to the refrain kind of like a subroutine call. There's a hidden refrain this program doesn't print by default. Can you get it to print it? There might be something in it for you.
+The program's source code is attached to the prompt.
+Connect to the program with netcat:
+$ nc verbal-sleep.picoctf.net [PORT]
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [PARTIAL] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──

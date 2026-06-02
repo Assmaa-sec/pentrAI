@@ -1,0 +1,16 @@
+Both the binary here and the source are attached to the prompt.
+Connect to the program with netcat:
+$ nc shape-facility.picoctf.net [PORT]
+
+Results:
+[Experiment 1]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 2]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
+
+[Experiment 3]
+Previous results: ── TEST RESULT: [FAILED] ──
+── New log ──
