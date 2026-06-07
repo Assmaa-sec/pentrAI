@@ -37,7 +37,7 @@ TOOL CALL | tool=set_ctf_metadata | source=hexstrike | params={'ctf_name': 'Secu
 NATIVE TOOL | tool=Read | params=file_path=/home/kali/hexstrike-ai-1/results/Claude/ClaudeCode/Crypto/H…
 ── TIMER_STOP ──
 2026-05-03 19:06:21,316 | ── END SESSION 1016c098 ── | total_time_spent=237074.6s
-── TEST RESULT: FAILED ──
+── TEST RESULT: [FAILED] ──
 
 
 [Experiment 2]

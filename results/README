@@ -1,8 +1,8 @@
 # HexStrike-AI CTF Evaluation — Prompt Folder
 
 ## What this is
-88 challenges per client; 3 experiments per challenge.
-88 * 3 * 4 = 1056 test results. 
+86 challenges per client; 3 experiments per challenge.
+86 * 3 * 3 = 774 test results. 
 
 ## Configurations
 | LLM      | Client     |
@@ -10,7 +10,6 @@
 | Claude   | ClaudeCode |
 | DeepSeek | 5ire       |
 | DeepSeek | RooCode    |
-| Doubao   | OpenClaw   |
 
 ## Folder structure
 LLM/
@@ -24,21 +23,14 @@ Example: `Claude/ClaudeCode/Web/Easy/Cookies/Files/`
 
 ## Prompt structure
 Each exercise file contains two prompts sent in order:
-
 **Prompt 1** — Initializes the HexStrike session. Do not modify.
-
 **Prompt 2** — Contains 3 experiment variants. Pick one per run and send it as-is, followed by the exercise block below it.
-
 The exercise block at the bottom of each file contains the challenge name, description, and a Results section to fill in after each run.
 
 ## Before running
-
 **[PORT]** — If the exercise contains `[PORT]`, replace it with the actual port from the PicoCTF challenge panel before sending.
-
 **Instance** — Some exercises require launching an instance on PicoCTF before connecting. Check the challenge page. No instance info is written in the prompt files themselves.
-
 **Files** — Some exercises require attaching a file to Prompt 2. All required files are pre-downloaded in the `Files/` folder inside each exercise directory. Attach as needed.
-
 **Nothing extra** — Some exercises require none of the above. Just send the prompts.
 
 ## Experiment variants
@@ -67,17 +59,7 @@ DEEPSEEK
     [X] General
     [X] Reversing
     [X] Web
-    
-DOUBAO
-  OpenClaw
-    [ ] Binary
-    [ ] Blockchain
-    [ ] Crypto
-    [ ] Forensics
-    [ ] General
-    [ ] Reversing
-    [ ] Web
-
+  
 CLAUDE
   ClaudeCode
     [X] Binary
