@@ -76,14 +76,15 @@ No changes
 
 # Experiments
 EXPERIMENT 1 — Free Solve
-You may use any tools available to solve this challenge.
+You may use any tools available (hexstrike and native) to solve this challenge.
 Focus on efficiency: form a hypothesis first, then validate.
 
-EXPERIMENT 2 — HexStrike Tools (Ranked)
-Prefer hexstrike: tools and follow their relevance ranking — try the higher-ranked ones first.
-You may fall back to a native tool when no hexstrike tool fits, but reach for hexstrike first.
-EXPERIMENT 3 — HexStrike Tools Only (Strict Adherence)
+EXPERIMENT 2 — HexStrike Tools Only (Ranked)
+CONSTRAINT: You MUST use ONLY hexstrike: tools. Do NOT use Bash, Read, Write, or any native tools.
+Using any tool not prefixed with hexstrike: will invalidate this experiment.
+HexStrike tools are ranked by relevance — prefer higher-ranked tools.
 
+EXPERIMENT 3 — HexStrike Tools Only (Strict Adherence)
 ABSOLUTE CONSTRAINT: ONLY hexstrike: prefixed tools exist in this environment.
 Bash, Read, Write, and ALL native tools are DISABLED and will FAIL if called.
 Using any non-hexstrike tool invalidates this experiment.
