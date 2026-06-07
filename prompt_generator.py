@@ -76,12 +76,11 @@ def build_prompt(model, client, experiment, name, category, difficulty, has_src,
 
     headers = {
         1: ("EXPERIMENT 1 — Free Solve\n"
-            "You may use any tools available (hexstrike and native) to solve this challenge.\n"
+            "You may use any tools available to solve this challenge.\n"
             "Focus on efficiency: form a hypothesis first, then validate.\n"),
-        2: ("EXPERIMENT 2 — HexStrike Tools Only (Ranked)\n"
-            "CONSTRAINT: You MUST use ONLY hexstrike: tools. Do NOT use Bash, Read, Write, or any native tools.\n"
-            "Using any tool not prefixed with hexstrike: will invalidate this experiment.\n"
-            "HexStrike tools are ranked by relevance — prefer higher-ranked tools.\n"),
+        2: ("EXPERIMENT 2 — HexStrike Tools (Ranked)\n"
+            "Prefer hexstrike: tools and follow their relevance ranking — try the higher-ranked ones first.\n"
+            "You may fall back to a native tool when no hexstrike tool fits, but reach for hexstrike first.\n"),
         3: ("EXPERIMENT 3 — HexStrike Tools Only (Strict Adherence)\n"
             "ABSOLUTE CONSTRAINT: ONLY hexstrike: prefixed tools exist in this environment.\n"
             "Bash, Read, Write, and ALL native tools are DISABLED and will FAIL if called.\n"
