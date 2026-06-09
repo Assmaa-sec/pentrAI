@@ -50,24 +50,23 @@ Each wraps an external binary (install noted).
 - **`execute_python_script` `template=`** (#1) — pwn_remote / http_request / crypto_solve skeletons.
 - **Exp 2/3 constraint flagging** (#5) — hook tags native calls when the prompt is Exp 2/3 (flag only, no hard block).
 - **Phantom-tool guidance** (#2) — prompt states `web_request` / `source_code_read` don't exist.
+- **`rsa_factor`** (§3) — Pollard p-1 + Fermat + sympy (+RsaCtfTool). ✅ VM-verified (factored a test modulus). → Crypto/Hard/Very Smooth.
+- **`compression_oracle`** (§3) — emits a CRIME/BREACH harness. ✅ VM-verified (valid harness); the solve still needs the live oracle. → Crypto/Hard/Compress and Attack.
+- **`timing_oracle`** (§3) — char-by-char by response time. ✅ VM-verified (loop runs); real exploit needs a real timing signal. → Forensics/Hard/SideChannel.
+- **`smb_ipp_exploit`** (§3) — netexec/smbclient + ipptool/nmap. ✅ VM-verified (commands execute); real data needs the live host. → General/Hard/Printer Shares 2 & 3.
+- **`sqli_order_oracle`** (§3) — ORDER BY / CASE WHEN boolean-blind extraction (binary search; `compare=` for DB portability). ✅ VM-verified (extracted a flag from a local SQLite target). → Web/Hard/ORDER ORDER.
+- **`evtx_parser`** (§3) — drives the python-evtx library, filters to flag/notable records + truncates `stdout` for LLM context (`full=true` / `grep=` to widen). ✅ VM-verified (parses logs, `notable_entries` carries the signal). → Forensics/Medium/Event-Viewing.
+- **`blockchain_exploit`** (§3) — foundry `cast` wrapper (call/send/storage/balance/code); resolves `~/.foundry/bin/cast` off-PATH. ✅ VM-verified (returned an anvil account balance). → Blockchain/Hard/Reentrance, Medium/Access_Control, Medium/Smart_Overflow.
 
 ---
 
-## 2. Implemented, needs an action first -
-EMPTY
+## 2. Implemented, needs a live Kali check
+*(empty — all 7 §3 tools were built AND VM-verified this session; they're in §1.)*
 
 ---
 
 ## 3. Not implemented — buildable
-Each needs one concrete, bounded tool:
-- `Forensics/Medium/Event-Viewing` → `.evtx` parser wrapper (python-evtx / evtx_dump). Cheapest win.
-- `Web/Hard/ORDER ORDER` → extend `blind_sqli_extractor` with an `ORDER BY` / `CASE WHEN` oracle.
-- `Crypto/Hard/Compress and Attack` → compression-length oracle extractor (CRIME/BREACH-style).
-- `Crypto/Hard/Very Smooth` → RSA/factorization toolkit (Pollard p−1; wrap RsaCtfTool/yafu). High-confidence (a `solve.py` already exists in the Claude results).
-- `General/Hard/Printer Shares 2`, `General/Hard/Printer Shares 3` → SMB/IPP tooling (netexec / impacket / ipptool).
-- `Blockchain/Hard/Reentrance` → blockchain automation (foundry/`cast`). Nearly worked already.
-- `Blockchain/Medium/Access_Control`, `Blockchain/Medium/Smart_Overflow` → same blockchain tooling (mostly passing; helps weaker configs).
-- `Forensics/Hard/SideChannel` → timing-oracle harness.
+*(empty — all 10 exercises' tools were built this session and moved to §2, pending a live Kali check.)*
 
 ---
 ## 4. Not implemented — out of reach
@@ -77,4 +76,4 @@ Each needs one concrete, bounded tool:
 
 ---
 
-**Totals:** ready ≈ 45 · capability-tool-dependent = 11 · §3 build-worth = 10 · §4 out-of-reach = 10.
+**Totals:** ready ≈ 45 · capability tools = 11 + 7 new VM-verified · §2 built-pending = 0 · §3 = 0 · §4 out-of-reach = 10.

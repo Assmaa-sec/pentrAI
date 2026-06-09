@@ -7,7 +7,7 @@
 
 ## Project Overview
 
-**HexStrike AI v6.0** is an AI-powered penetration testing and CTF automation platform built on the Model Context Protocol (MCP) architecture. It integrates AI agents with 150+ security tools and exposes 157 MCP tools to AI clients.
+**HexStrike AI v6.0** is an AI-powered penetration testing and CTF automation platform built on the Model Context Protocol (MCP) architecture. It integrates AI agents with 150+ security tools and exposes 170 MCP tools to AI clients.
 
 **Project path:** `/home/kali/hexstrike-ai-1/`
 **Git user:** Assmaa Zeghaider
@@ -20,7 +20,7 @@
 | File | Role | Size |
 |------|------|------|
 | `hexstrike_server.py` | Flask REST API backend (port 8888), tool execution, decision engine, logging | ~17,600 lines |
-| `hexstrike_mcp.py` | FastMCP interface exposing 157 tools to AI agents via stdio | ~5,700 lines |
+| `hexstrike_mcp.py` | FastMCP interface exposing 170 tools to AI agents via stdio | ~6,000 lines |
 
 ### Communication Flow
 ```
@@ -125,7 +125,7 @@ Used when connecting to a remote hexstrike server (non-local).
 
 ---
 
-## MCP Tools (157 Total)
+## MCP Tools (170 Total)
 
 ### Session Management
 `set_llm_identity`, `get_llm_identity`, `set_ctf_metadata`, `get_ctf_session_info`, `start_timer`, `stop_timer`
@@ -156,6 +156,10 @@ Used when connecting to a remote hexstrike server (non-local).
 
 ### Utility / System
 `execute_command`, `execute_python_script`, `install_python_package`, `create_file`, `modify_file`, `delete_file`, `list_files`, `server_health`, `get_telemetry`, `get_process_status`, `get_process_dashboard`, `list_active_processes`, `pause_process`, `resume_process`, `terminate_process`, `display_system_metrics`, `create_scan_summary`, `create_vulnerability_report`, `format_tool_output_visual`, `clear_cache`
+
+### CTF Capability Tools (hexfix)
+Runtime-verified: `disk_image_mount`, `pcap_decrypt`, `rop_chain_builder`, `xss_csrf_chain`.
+New (hexfix §3 — built, pending live Kali verification): `evtx_parser`, `rsa_factor`, `compression_oracle`, `sqli_order_oracle`, `timing_oracle`, `smb_ipp_exploit`, `blockchain_exploit`.
 
 ---
 

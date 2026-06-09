@@ -461,3 +461,38 @@ FIX 11 — Tool output feedback loop (hexfix #12)
      - dalfox→browser_agent_inspect
    - Suppressed when flag already found (score >= 0.95)
    - Wrapped in try/except so enrichment never breaks tool results
+
+
+FIX 12 — CTF CAPABILITY TOOLS (hexfix §3 — buildable capability gaps)
+   Seven new tools for the exercises that previously had no fix. Each = a new /api/tools/* endpoint +
+   matching @mcp.tool() wrapper (before return mcp) + a get-experiment-prompt category nudge +
+   prompt_generator.py nudge. BUILT + py_compile-clean + routes/wrappers verified, but NOT yet run on
+   the Kali VM — a shell/network-wrapping tool that only passed static checks is not proven (see
+   disk_image_mount, which compiled but was broken twice). Move each to "ready" after one live run.
+
+   (These join the earlier, already runtime-verified capability tools: disk_image_mount, pcap_decrypt,
+   rop_chain_builder, xss_csrf_chain.)
+
+   All paths/values interpolated into shell commands are shlex.quote()'d; external binaries use a
+   shutil.which() fallback and degrade gracefully when absent.
+
+   - evtx_parser          /api/tools/evtx-parser        → Forensics/Medium/Event-Viewing
+       evtx_dump (Rust) → python-evtx fallback; surfaces flag / 4624 / 4625 / 4688 / powershell lines.
+       Needs: evtx_dump (cargo) or python-evtx.
+   - rsa_factor           /api/tools/rsa-factor         → Crypto/Hard/Very Smooth
+       Pollard p-1 (smooth primes) + Fermat (close primes) + sympy, optional RsaCtfTool; decrypts c if given.
+       Strict integer validation on n/e/c (interpolated into python -c). Needs: sympy (present); optional RsaCtfTool.
+   - compression_oracle   /api/tools/compression-oracle → Crypto/Hard/Compress and Attack
+       Emits a ready-to-run CRIME/BREACH byte-by-byte recovery harness. Needs: the live compression oracle.
+   - sqli_order_oracle    /api/tools/sqli-order-oracle  → Web/Hard/ORDER ORDER
+       Boolean-blind extraction via ORDER BY / CASE WHEN binary search (the variant blind_sqli_extractor misses).
+       Needs: a live target + a TRUE-response marker string.
+   - timing_oracle        /api/tools/timing-oracle      → Forensics/Hard/SideChannel
+       Recovers a secret char-by-char by median response time (http or command mode; shlex.quote on command mode).
+   - smb_ipp_exploit      /api/tools/smb-ipp-exploit    → General/Hard/Printer Shares 2 & 3
+       netexec/crackmapexec/smbclient for SMB + ipptool/nmap CUPS scripts for IPP. Needs those binaries + the host.
+   - blockchain_exploit   /api/tools/blockchain-exploit → Blockchain/Hard/Reentrance, Medium/Access_Control, Medium/Smart_Overflow
+       foundry 'cast' wrapper (call/send/storage/balance/code). Needs: foundry (foundryup) + the RPC URL + contract.
+
+   Files (each tool): hexstrike_server.py (endpoint) + hexstrike_mcp.py (wrapper) +
+                      hexstrike_server.py get-experiment-prompt nudge + prompt_generator.py nudge.

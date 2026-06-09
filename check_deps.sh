@@ -13,6 +13,8 @@
 
 miss_apt=()
 miss_pip=()
+miss_other=()
+need_foundry=""
 
 chk_bin () {  # $1 command   $2 apt-package-if-missing ("" = handled elsewhere)
     if command -v "$1" >/dev/null 2>&1; then
@@ -57,6 +59,23 @@ if command -v vol >/dev/null 2>&1 || command -v vol.py >/dev/null 2>&1 || comman
 else
     printf "  %-18s MISSING\n" "vol(atility3)"; miss_pip+=("volatility3")
 fi
+# --- §3 capability tools ---
+chk_bin smbclient   smbclient
+chk_bin ipptool     cups-ipp-utils
+if command -v nxc >/dev/null 2>&1 || command -v netexec >/dev/null 2>&1; then
+    printf "  %-18s OK\n" "netexec (nxc)"
+else
+    printf "  %-18s MISSING\n" "netexec (nxc)"
+    miss_other+=("netexec: pipx install netexec   ||   sudo apt install -y netexec")
+fi
+# foundry cast/anvil — foundryup installs to ~/.foundry/bin, often OFF the server's PATH
+for fb in cast anvil; do
+    if command -v "$fb" >/dev/null 2>&1 || [ -x "$HOME/.foundry/bin/$fb" ]; then
+        printf "  %-18s OK\n" "$fb"
+    else
+        printf "  %-18s MISSING\n" "$fb"; need_foundry=1
+    fi
+done
 
 echo
 echo "[ Python libraries — must be in the ACTIVE venv ]"
@@ -70,6 +89,8 @@ chk_py aiohttp     aiohttp
 chk_py mitmproxy   mitmproxy
 chk_py pwn         pwntools
 chk_py Crypto      pycryptodome
+chk_py Evtx        python-evtx
+chk_py sympy       sympy
 
 echo
 echo "[ Which fix / tool needs what ]"
@@ -84,6 +105,13 @@ cat <<'MAP'
   blind_sqli / http (#6,#8) requests
   nmap (#11)                nmap
   crypto_solve template     Crypto (pycryptodome)
+  evtx_parser (§3)          Evtx (python-evtx)
+  rsa_factor (§3)           sympy   (optional: RsaCtfTool)
+  compression_oracle (§3)   requests   (emits a harness)
+  sqli_order_oracle (§3)    requests
+  timing_oracle (§3)        requests
+  smb_ipp_exploit (§3)      smbclient + ipptool (cups-ipp-utils) + netexec
+  blockchain_exploit (§3)   cast (foundry; also ~/.foundry/bin)
   (server boots at all)     flask requests psutil mcp bs4 selenium aiohttp mitmproxy
 MAP
 
@@ -91,7 +119,9 @@ echo
 echo "[ Code freshness — did the updated files get copied over? ]"
 SRV="${1:-hexstrike_server.py}"
 if [ -f "$SRV" ]; then
-    for marker in rop-chain-builder disk-image-mount pcap-decrypt xss-csrf-chain; do
+    for marker in rop-chain-builder disk-image-mount pcap-decrypt xss-csrf-chain \
+                  evtx-parser rsa-factor compression-oracle sqli-order-oracle \
+                  timing-oracle smb-ipp-exploit blockchain-exploit; do
         if grep -q "$marker" "$SRV"; then printf "  %-20s present\n" "$marker"
         else printf "  %-20s MISSING — old %s?\n" "$marker" "$SRV"; fi
     done
@@ -107,7 +137,17 @@ fi
 if [ ${#miss_pip[@]} -gt 0 ]; then
     echo "  pip install $(printf '%s\n' "${miss_pip[@]}" | sort -u | tr '\n' ' ')   # inside the venv"
 fi
-if [ ${#miss_apt[@]} -eq 0 ] && [ ${#miss_pip[@]} -eq 0 ]; then
+if [ ${#miss_other[@]} -gt 0 ]; then
+    printf '  %s\n' "${miss_other[@]}"
+fi
+if [ -n "$need_foundry" ]; then
+    echo "  foundry (cast/anvil):  curl -L https://foundry.paradigm.xyz | bash    THEN open a NEW shell and run:  foundryup"
+    echo "    behind the firewall:  https_proxy=http://127.0.0.1:7890 curl -L https://foundry.paradigm.xyz | bash   (new shell, then foundryup)"
+    echo "    if the binary download still fails: grab foundry_<ver>_linux_amd64.tar.gz  (amd64 == x86_64!) from"
+    echo "    https://github.com/foundry-rs/foundry/releases , confirm 'file' shows clean gzip, then:"
+    echo "      mkdir -p ~/.foundry/bin && tar -xzf foundry_*_linux_amd64.tar.gz -C ~/.foundry/bin cast anvil && chmod +x ~/.foundry/bin/{cast,anvil}"
+fi
+if [ ${#miss_apt[@]} -eq 0 ] && [ ${#miss_pip[@]} -eq 0 ] && [ ${#miss_other[@]} -eq 0 ] && [ -z "$need_foundry" ]; then
     echo "  Nothing missing — you're good to go."
 fi
 echo
