@@ -1,15 +1,16 @@
-tool_logger.log
-hexstrike.log
-core.*
-.mcp.json
-im_scared/*
-.roo
-prompts
-.claude/*
-hexstrike_config.json
-kubectl
-log-*
 .pyc
 __pycache__/
 hexstrike-env/
-format_results.py
+.mcp.json
+hexstrike_config.json
+
+# GET A BETTER EXP - 'log'
+tool_logger.log
+hexstrike.log
+log-*
+
+# TO REMOVE
+im_scared/*
+core.*
+kubectl
+.claude/*
