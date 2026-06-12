@@ -334,11 +334,11 @@ results_with_fixes/ (the "Previous results:" line is the old one).
 Config              | Before          | After           | Delta    | Re-run batch (of T)
 --------------------+-----------------+-----------------+----------+--------------------------
 Deepseek / 5ire     | 72/258  (27.9%) | 128/258 (49.6%) | +21.7 pp | 56 S / 91 F / 11 P  (158)
-Deepseek / RooCode  | 154/258 (59.7%) | 194/258 (75.1%) | +15.4 pp | 40 S / 19 F / 25 P  (84)
+Deepseek / RooCode  | 154/258 (59.7%) | 197/258 (76.4%) | +16.7 pp | 43 S / 16 F / 25 P  (84)
 Claude / ClaudeCode | 203/258 (78.7%) | -- not re-run -- |    --    | (Claude/ClaudeCode empty)
 
 - 5ire nearly doubles its global solve rate (+21.7pp); all 56 re-run successes are flips.
-- RooCode gains +15.4pp off a higher base; its re-run batch carries 25 PARTIALs (vs 5ire's 11),
+- RooCode gains +16.7pp off a higher base; its re-run batch carries 25 PARTIALs (vs 5ire's 11),
   mostly Web (see 11.2).
 - Claude/ClaudeCode is NOT part of this re-run round (Test Progress in results_with_fixes/README:
   every ClaudeCode category unchecked). Its 78.7% baseline is unchanged.
@@ -353,7 +353,7 @@ Category    | Flips / T | new S / F / P
 ------------+-----------+--------------
 Binary      | 23 / 53   | 23 / 25 /  5
 Forensics   | 21 / 52   | 21 / 26 /  5
-General     | 16 / 38   | 16 / 20 /  2
+General     | 19 / 38   | 19 / 17 /  2
 Crypto      | 13 / 25   | 13 /  9 /  3
 Web         | 13 / 53   | 13 / 22 / 18
 Reversing   |  8 / 15   |  8 /  5 /  2
@@ -364,13 +364,13 @@ Category    | 5ire    | RooCode
 ------------+---------+-----------------------------------
 Binary      | 12 / 31 | 11 / 22
 Forensics   | 13 / 38 |  8 / 14
-General     |  8 / 24 |  8 / 14
+General     |  8 / 24 | 11 / 14
 Crypto      |  6 / 17 |  7 /  8
 Web         |  9 / 29 |  4 / 24
 Reversing   |  6 / 13 |  2 /  2
 Blockchain  |  2 /  6 |  -- (no Blockchain trials in RooCode's bucket A)
 
-- Binary + Forensics = 44 of 96 flips -- the largest recoveries (pwntools/rop steering; foremost/
+- Binary + Forensics = 44 of 99 flips -- the largest recoveries (pwntools/rop steering; foremost/
   volatility/evtx/disk tooling).
 - Web is the most stuck: lowest flip ratio (13/53 = 25%) and holds 18 of the 36 combined PARTIALs
   (16 of them RooCode) -- partial extraction, no verified flag.
@@ -382,20 +382,20 @@ COMBINED (5ire + RooCode)
 Difficulty | Flips / T | new S / F / P  | flip-rate
 -----------+-----------+----------------+----------
 Easy       | 41 / 55   | 41 / 13 /  1   | 74.5%
-Medium     | 43 / 97   | 43 / 39 / 15   | 44.3%
+Medium     | 46 / 97   | 46 / 36 / 15   | 47.4%
 Hard       | 12 / 90   | 12 / 58 / 20   | 13.3%
 
 Per config (flips / re-run T)
 Difficulty | 5ire    | RooCode
 -----------+---------+--------
 Easy       | 24 / 37 | 17 / 18
-Medium     | 28 / 70 | 15 / 27
+Medium     | 28 / 70 | 18 / 27
 Hard       |  4 / 51 |  8 / 39
 
 - Monotonic gradient: ~3 of 4 Easy recovered, ~half of Medium, ~1 in 8 Hard. Matches section 4
   (out-of-reach) plus the capability-present-but-reasoning/signal-bound tools (timing_oracle, the
   SMB write-pivot) clustering at Hard.
-- Easy + Medium = 84 of 96 flips (87.5%); post-fix gains are overwhelmingly Easy/Medium.
+- Easy + Medium = 87 of 99 flips (87.9%); post-fix gains are overwhelmingly Easy/Medium.
 - 5ire Hard is the weakest cell (4/51 = 7.8%); RooCode Hard does better (8/39 = 20.5%), including
   the Printer Shares 3 flips.
   
@@ -403,7 +403,7 @@ Hard       |  4 / 51 |  8 / 39
 -----------------------------------------
 Before = recorded per-experiment baseline (section-3 table, 86 exercises per experiment). After =
 before + flips recorded in that experiment's re-run logs (flips counted per [Experiment N] block in
-results_with_fixes/). Totals reconcile to 11.1 (5ire 128, RooCode 194).
+results_with_fixes/). Totals reconcile to 11.1 (5ire 128, RooCode 197).
 
 5ire                | Exp 1 (Free)   | Exp 2 (Ranked) | Exp 3 (Strict)
 --------------------+----------------+-------------------+----------------
@@ -415,21 +415,21 @@ delta               | +12.8 pp       | +20.9 pp        | +31.4 pp
 RooCode             | Exp 1 (Free)   | Exp 2 (Ranked) | Exp 3 (Strict)
 --------------------+----------------+-------------------+----------------
 before              | 51/86 (59.3%)  | 51/86 (59.3%)  | 52/86 (60.5%)
-flips               | +14            | +13            | +13
-after               | 65/86 (75.6%)  | 64/86 (74.4%)  | 65/86 (75.6%)
-delta               | +16.3 pp       | +15.1 pp       | +15.1 pp
+flips               | +15            | +14            | +14
+after               | 66/86 (76.7%)  | 65/86 (75.6%)  | 66/86 (76.7%)
+delta               | +17.4 pp       | +16.3 pp       | +16.2 pp
 
 - 5ire's gain scales with constraint strictness: +12.8 (Free) < +20.9 (Ranked) < +31.4 (Strict).
   Exp 3 -- where native tools are banned -- leaps 33.7% -> 65.1%, from 5ire's near-worst variant to
   its best. The new hexstrike capability tools matter most exactly when the model cannot fall back
   to native tooling. (Exp 2 was 5ire's rock bottom at 19.8%; now 40.7%, still its weakest variant.)
-- RooCode moves uniformly (~+15pp every variant) -- consistent with its "stable across variants"
+- RooCode moves uniformly (~+16-17pp every variant) -- consistent with its "stable across variants"
   profile; the fixes lift its floor without changing its flat shape.
 
 11.5 Tools that unlocked previously-failed exercises
 ----------------------------------------------------
-Attribution from each flipped block's new-log tool calls (results_with_fixes/). 96 total flips:
-40 used a capability tool (13 via the 7 new §3 tools, 27 via first-round capability tools), 56 used
+Attribution from each flipped block's new-log tool calls (results_with_fixes/). 99 total flips:
+40 used a capability tool (13 via the 7 new §3 tools, 27 via first-round capability tools), 59 used
 none. Notably, ALL 12 Hard flips used a capability tool -- the global modifiers alone recovered only
 Easy/Medium.
 
@@ -462,8 +462,8 @@ smb_ipp_exploit     | Printer Shares 3 (General/Hard)   | yes     | RooCode Exp1
   disk_image_mount    DISKO 3 (Forensics/Med) -- 5ire Exp3
   blind_sqli_extractor No FA, Sql Map1 (Web/Med)
 
-(d) Flips with NO tracked capability tool (56) -> global modifiers + first-round default fixes.
-    All Easy (33) or Medium (23); zero Hard. By category: Forensics 16, General 13, Crypto 10, Web 9,
+(d) Flips with NO tracked capability tool (59) -> global modifiers + first-round default fixes.
+    All Easy (33) or Medium (26); zero Hard. By category: Forensics 16, General 16, Crypto 10, Web 9,
     Reversing 7, Binary 1. Attributable to the strategy preamble (#10), decompose_challenge (#4) and
     execute_python_script validation (#1), plus the first-round non-capability fixes
     (http_framework_test sessions #6, foremost #9a, volatility #9b, nmap defaults #11). These cannot
