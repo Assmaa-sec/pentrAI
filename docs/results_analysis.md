@@ -342,6 +342,9 @@ Claude / ClaudeCode | 203/258 (78.7%) | -- not re-run -- |    --    | (Claude/Cl
   mostly Web (see 11.2).
 - Claude/ClaudeCode is NOT part of this re-run round (Test Progress in results_with_fixes/README:
   every ClaudeCode category unchecked). Its 78.7% baseline is unchanged.
+- Ceiling (NOT 100%): 10 of the 86 challenges are out of reach for any tooling (§4 — 2 externally
+  impossible, 6 reasoning-bound, 2 huge-effort one-offs not built), so the maximum achievable solve
+  rate is 76/86 = 88.4% per config (228/258 trials). Read every post-fix rate against this ceiling.
 
 11.2 Solve-rate delta per category (re-run population)
 ------------------------------------------------------
