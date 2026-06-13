@@ -88,6 +88,7 @@ HEXSTRIKE TOOL | tool=execute_command | params=command=cat > /tmp/noted_attack.p
 NATIVE TOOL | tool=ToolSearch | params=query=select:mcp__hexstrike-ai__stop_timer,mcp__hexstrike-ai__get_… | max_results=2
 ── TIMER_STOP ──
 2026-06-13 14:30:17,695 | ── END SESSION 5afed848 ── | total_time_spent=1593.1s
+── TEST RESULT: [FAILED] ──
 
 [Experiment 3]
 Previous results: ── TEST RESULT: [FAILED] ──
