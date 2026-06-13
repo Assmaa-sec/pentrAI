@@ -115,4 +115,3 @@ NATIVE TOOL | tool=ToolSearch | params=query=select:mcp__hexstrike-ai__stop_time
 ── TIMER_STOP ──
 2026-04-22 07:04:46,193 | ── END SESSION 1fd1eea9 ── | total_time_spent=1271.8s
 ── TEST RESULT: [FAILED] ──
-TOOL CALL | tool=set_ctf_metadata | source=hexstrike | params={'ctf_name': 'babygame03', 'ctf_difficulty': 'Hard', 'ctf_type': 'Binary', 'prompt_type': 'failure'}
