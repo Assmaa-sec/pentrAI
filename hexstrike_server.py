@@ -90,6 +90,78 @@ except PermissionError:
     )
 logger = logging.getLogger(__name__)
 
+# ============================================================================
+# SECRET / FLAG DETECTION — central, configurable (de-CTF generalization)
+# ============================================================================
+# HexStrike is a real-world pentest framework, so "what looks like a secret worth
+# surfacing" must NOT be hardcoded to picoCTF. This block is the single source of
+# truth used by every tool's secret-detection / triage code (foremost, volatility3,
+# disk_image_mount, evtx_parser, smb_ipp_exploit, the strings analyzer, the CTF
+# automator's flag extraction, and — mirrored — the MCP feedback-loop score).
+#
+# Defaults cover real-world indicators (generic CTF/FLAG braces, AWS keys, GitHub/
+# Slack tokens, JWTs, private-key headers, password/token assignments) AND keep the
+# picoCTF formats, so the running picoCTF experiment does NOT regress. For a real
+# engagement, edit SECRET_PATTERNS / SECRET_KEYWORDS here, or pass patterns= /
+# keywords= to the helpers per call.
+# NOTE: kept in sync with the identical block in hexstrike_mcp.py (separate process).
+
+# Regex tokens for EXTRACTING a concrete secret/flag value from output.
+SECRET_PATTERNS = [
+    r'picoCTF\{[^}\r\n]{1,200}\}',                                       # picoCTF (experiment — keep first)
+    r'(?:pico|HTB|htb|flag|FLAG|CTF|ctf|key|KEY)\{[^}\r\n]{1,200}\}',    # generic <word>{...} flag formats
+    r'AKIA[0-9A-Z]{16}',                                                 # AWS access key id
+    r'ASIA[0-9A-Z]{16}',                                                 # AWS temporary access key id
+    r'aws_secret_access_key\s*[=:]\s*[A-Za-z0-9/+]{40}',                 # AWS secret key assignment
+    r'ghp_[A-Za-z0-9]{36}',                                              # GitHub personal access token
+    r'xox[baprs]-[A-Za-z0-9-]{10,}',                                     # Slack token
+    r'eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}',       # JWT (header.payload.sig)
+    r'-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----',      # private-key header
+    r'(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[^\s<>]{6,}',  # credential assignment
+]
+
+# Substring keywords for TRIAGING a line / filename as notable (cheap, case-insensitive).
+SECRET_KEYWORDS = [
+    "flag", "ctf", "secret", "password", "passwd", "credential",
+    "api_key", "apikey", "token", "private key", "id_rsa",
+    "key", "pass", "hidden", "admin",
+]
+
+# Default seed prefix for the oracle harnesses (override per call with known_prefix=).
+DEFAULT_FLAG_PREFIX = "picoCTF{"
+# Default extraction target for the boolean-blind SQLi oracle (override per call with query=).
+# CTF-shaped (a `flags` table); for a real target pass query= to read a known column.
+DEFAULT_SQLI_SECRET_QUERY = "substr((SELECT group_concat(flag) FROM flags),{pos},1)"
+
+_SECRET_RE = re.compile("|".join(SECRET_PATTERNS), re.IGNORECASE)
+
+def find_secrets(text, patterns=None):
+    """Sorted unique secret/flag tokens in text. Uses SECRET_PATTERNS; override with patterns=."""
+    if not text:
+        return []
+    rx = _SECRET_RE if patterns is None else re.compile("|".join(patterns), re.IGNORECASE)
+    return sorted(set(m if isinstance(m, str) else m[0] for m in rx.findall(text)))
+
+def looks_like_secret(text, patterns=None):
+    """True if text contains any secret/flag token (SECRET_PATTERNS; override with patterns=)."""
+    if not text:
+        return False
+    rx = _SECRET_RE if patterns is None else re.compile("|".join(patterns), re.IGNORECASE)
+    return bool(rx.search(text))
+
+def is_notable(s, keywords=None, extra=None):
+    """True if a line/filename holds a notable keyword (SECRET_KEYWORDS; override keywords=, add extra=)."""
+    if not s:
+        return False
+    kws = (SECRET_KEYWORDS if keywords is None else keywords) + (extra or [])
+    low = s.lower()
+    return any(k in low for k in kws)
+
+def notable_lines(lines, keywords=None, extra=None, limit=None):
+    """Filter an iterable of lines/names to the notable ones (see is_notable). limit caps the result."""
+    out = [l for l in lines if is_notable(l, keywords=keywords, extra=extra)]
+    return out[:limit] if limit else out
+
 # ── Tool Decision Logger ──────────────────────────────────────────────────────
 tool_logger = logging.getLogger("tool_logger")
 tool_logger.setLevel(logging.INFO)
@@ -4169,13 +4241,10 @@ class CTFChallengeAutomator:
 
     def _extract_flag_candidates(self, output: str) -> List[str]:
         """Extract potential flags from tool output"""
-        flag_patterns = [
-            r'picoCTF\{[^}]+\}',
-            r'flag\{[^}]+\}',
-            r'FLAG\{[^}]+\}',
-            r'ctf\{[^}]+\}',
-            r'CTF\{[^}]+\}',
-            r'[a-zA-Z0-9_]+\{[^}]+\}',
+        # Central SECRET_PATTERNS (picoCTF + real-world secrets) plus this extractor's
+        # historical extras: a broad <word>{...} catch-all and raw hash digests.
+        flag_patterns = list(SECRET_PATTERNS) + [
+            r'[a-zA-Z0-9_]+\{[^}]+\}',  # any <word>{...} (unknown CTF formats)
             r'[0-9a-f]{32}',  # MD5 hash
             r'[0-9a-f]{40}',  # SHA1 hash
             r'[0-9a-f]{64}'   # SHA256 hash
@@ -4184,26 +4253,17 @@ class CTFChallengeAutomator:
         candidates = []
         for pattern in flag_patterns:
             matches = re.findall(pattern, output, re.IGNORECASE)
-            candidates.extend(matches)
+            # a custom pattern with capture groups yields tuples — normalize to the full match
+            candidates.extend(m if isinstance(m, str) else m[0] for m in matches)
 
         return list(set(candidates))  # Remove duplicates
 
     def _validate_flag_format(self, flag: str) -> bool:
         """Validate if a string matches common flag formats"""
-        common_formats = [
-            r'^picoCTF\{.+\}$',
-            r'^flag\{.+\}$',
-            r'^FLAG\{.+\}$',
-            r'^ctf\{.+\}$',
-            r'^CTF\{.+\}$',
-            r'^[a-zA-Z0-9_]+\{.+\}$'
-        ]
-
-        for pattern in common_formats:
-            if re.match(pattern, flag, re.IGNORECASE):
-                return True
-
-        return False
+        # A real secret/flag token (central SECRET_PATTERNS) or the generic <word>{...} form.
+        if looks_like_secret(flag):
+            return True
+        return bool(re.match(r'^[a-zA-Z0-9_]+\{.+\}$', flag))
 
     def _generate_manual_guidance(self, challenge: CTFChallenge, current_result: Dict[str, Any]) -> List[Dict[str, str]]:
         """Generate manual guidance when automation fails"""
@@ -15761,11 +15821,11 @@ def volatility3():
                 result["stdout"] = "\n".join(truncated)
                 result["truncated"] = True
                 result["total_lines"] = len(lines)
-            # Flag suspicious entries (common forensics indicators)
-            suspicious = [l for l in lines if any(kw in l.lower() for kw in
-                          ["flag", "secret", "hidden", "suspicious", "inject", "malware", "cmd.exe", "powershell", "/bin/sh"])]
+            # Flag suspicious entries: central secret keywords + forensics/malware indicators
+            suspicious = notable_lines(lines, extra=["suspicious", "inject", "malware",
+                                                     "cmd.exe", "powershell", "/bin/sh"], limit=20)
             if suspicious:
-                result["suspicious_entries"] = suspicious[:20]
+                result["suspicious_entries"] = suspicious
 
         logger.info(f"📊 Volatility3 analysis completed")
         return jsonify(result)
@@ -15823,7 +15883,7 @@ def foremost():
             result["recovery_summary"] = {
                 "total_files_recovered": len(recovered_files),
                 "file_types": file_type_counts,
-                "notable_files": [f for f in recovered_files if any(kw in f["name"].lower() for kw in ["flag", "secret", "key", "pass", "hidden", "admin"])]
+                "notable_files": [f for f in recovered_files if is_notable(f["name"])]
             }
         except Exception:
             pass  # Don't fail if post-processing has issues
@@ -15873,12 +15933,8 @@ def disk_image_mount():
         result["file_listing"] = listing[:8000]
 
         # 3. Surface interesting files
-        notable = []
-        for line in listing.splitlines():
-            low = line.lower()
-            if any(kw in low for kw in ["flag", "secret", "key", "pass", "hidden", "admin", "root",
-                                        ".txt", ".png", ".jpg", ".zip", ".gz"]):
-                notable.append(line.strip())
+        notable = [line.strip() for line in listing.splitlines()
+                   if is_notable(line, extra=["root", ".txt", ".png", ".jpg", ".zip", ".gz"])]
         result["notable_entries"] = notable[:50]
         result["total_entries"] = len(listing.splitlines())
         result["success"] = fls_res.get("success", False) or mmls_res.get("success", False)
@@ -16111,7 +16167,7 @@ def evtx_parser():
             "from Evtx.Evtx import Evtx\n"
             f"p={evtx_file!r}; FULL={bool(full)!r}; LIM={max_records}\n"
             f"GTERMS=[t for t in {grep.lower()!r}.split('|') if t]\n"   # grep supports a|b|c (match ANY term)
-            "KW=['picoctf{','flag','ctf{','secret','password']\n"   # default (no grep): flag-relevant only
+            f"KW={[k.lower() for k in SECRET_KEYWORDS]!r}\n"   # central SECRET_KEYWORDS (no grep): notable-only
             "CAP = 200 if (FULL or GTERMS) else 50\n"
             "n=0\n"
             "with Evtx(p) as _log:\n"
@@ -16123,7 +16179,7 @@ def evtx_parser():
             "        hit = FULL or (GTERMS and any(t in xl for t in GTERMS)) or (not GTERMS and any(k in xl for k in KW))\n"
             "        if hit:\n"
             "            print(x); n+=1\n"
-            "        if 'picoctf{' in xl or n>=CAP: break\n"
+            "        if any(b in xl for b in ('picoctf{','flag{','ctf{','htb{')) or n>=CAP: break\n"
         )
         rust_fmt = {"json": "-o jsonl", "jsonl": "-o jsonl", "xml": "-o xml"}.get(output_format, "-o xml")
         candidates = [("python-evtx-library", f"python3 -c {shlex.quote(lib_dump)}")]
@@ -16147,9 +16203,8 @@ def evtx_parser():
         result["method_used"] = used
         result["attempts"] = attempts   # per-method return_code + stderr, so failures are diagnosable
 
-        notable = [ln.strip() for ln in out.splitlines()
-                   if any(kw in ln.lower() for kw in ["picoctf{", "flag", "ctf{", "secret", "password", "key"])]
-        result["notable_entries"] = notable[:60]
+        notable = [ln.strip() for ln in notable_lines(out.splitlines(), limit=60)]
+        result["notable_entries"] = notable
         if grep:
             _terms = [t for t in grep.lower().split("|") if t]   # grep supports a|b|c
             result["grep_matches"] = [l for l in out.splitlines() if any(t in l.lower() for t in _terms)][:100]
@@ -16257,7 +16312,7 @@ def compression_oracle():
     try:
         params = request.json
         mode = params.get("mode", "tcp")            # tcp (raw-socket CRIME) or http (BREACH)
-        known_prefix = params.get("known_prefix", "picoCTF{")
+        known_prefix = params.get("known_prefix", DEFAULT_FLAG_PREFIX)
         charset = params.get("charset", "") or "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_}"
         # http (BREACH) params
         target_url = params.get("target_url", "")
@@ -16361,7 +16416,7 @@ def sqli_order_oracle():
         true_marker = params.get("true_marker", "")        # substring present only on TRUE responses
         true_status = int(params.get("true_status", 0))    # OR: HTTP status code that indicates TRUE
         template = params.get("template", "1 ORDER BY (CASE WHEN ({cond}) THEN 1 ELSE (SELECT 1 UNION SELECT 2) END)")
-        query = params.get("query", "substr((SELECT group_concat(flag) FROM flags),{pos},1)")
+        query = params.get("query", DEFAULT_SQLI_SECRET_QUERY)
         compare = params.get("compare") or "ascii({expr})>{val}"   # per-DB; SQLite: "unicode({expr})>{val}"
         max_len = int(params.get("max_len", 64))
         extra_data = params.get("data", {}) or {}           # other request fields
@@ -16402,7 +16457,7 @@ def sqli_order_oracle():
                 break
         result = {"success": bool(extracted), "url": url, "param": param,
                   "extracted": extracted, "length": len(extracted),
-                  "note": "Boolean-blind ORDER BY only (signal must be IN the HTTP response). Defaults MySQL-style; SQLite: compare='unicode({expr})>{val}'. For UNION / second-order / CSV-output injection use sqlmap_scan instead."}
+                  "note": "Boolean-blind ORDER BY only (signal must be IN the HTTP response). Defaults MySQL-style; SQLite: compare='unicode({expr})>{val}'. Default query= reads a CTF flags table — pass query= for a real target. For UNION / second-order / CSV-output injection use sqlmap_scan instead."}
         logger.info(f"🧪 ORDER BY blind SQLi extracted {len(extracted)} chars from {url}")
         return jsonify(result)
     except Exception as e:
@@ -16529,7 +16584,7 @@ def smb_ipp_exploit():
         result = {"success": False, "target": target, "service": service, "action": action, "commands": []}
 
         MAX_SHARES, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, TRUNC = 10, 25, 100000, 200000, 4000
-        flag_re = re.compile(r'(?:pico)?CTF\{[^}\r\n]{1,120}\}|flag\{[^}\r\n]{1,120}\}', re.IGNORECASE)
+        flag_re = _SECRET_RE   # central SECRET_PATTERNS (picoCTF + real-world secrets)
         flags = set()
 
         def run(label, cmd):
@@ -18390,8 +18445,8 @@ def ctf_binary_analyzer():
                     if string.startswith('/') or '\\' in string:
                         interesting_categories["file_paths"].append(string)
 
-                    # Look for potential flags
-                    if any(keyword in string.lower() for keyword in ['flag', 'ctf', 'key', 'password']):
+                    # Look for potential flags / secrets (central secret keywords)
+                    if is_notable(string):
                         interesting_categories["potential_flags"].append(string)
 
                     # Look for system calls

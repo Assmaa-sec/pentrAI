@@ -24,6 +24,7 @@ import logging
 from typing import Dict, Any, Optional
 import requests
 import time
+import re
 from datetime import datetime
 
 from mcp.server.fastmcp import FastMCP
@@ -138,6 +139,53 @@ for handler in logging.getLogger().handlers:
     ))
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# SECRET / FLAG DETECTION — central, configurable (de-CTF generalization)
+# ============================================================================
+# Mirror of the block in hexstrike_server.py (the MCP client is a separate process,
+# so it can't import the server's copy). Used here only by the feedback-loop
+# confidence score in _enrich_result; kept identical so both sides agree on what
+# "looks like a secret." Defaults keep picoCTF so the running experiment does NOT
+# regress; for a real engagement edit SECRET_PATTERNS / SECRET_KEYWORDS (and the
+# server's matching block) or pass patterns= per call.
+
+# Regex tokens for EXTRACTING a concrete secret/flag value from output.
+SECRET_PATTERNS = [
+    r'picoCTF\{[^}\r\n]{1,200}\}',                                       # picoCTF (experiment — keep first)
+    r'(?:pico|HTB|htb|flag|FLAG|CTF|ctf|key|KEY)\{[^}\r\n]{1,200}\}',    # generic <word>{...} flag formats
+    r'AKIA[0-9A-Z]{16}',                                                 # AWS access key id
+    r'ASIA[0-9A-Z]{16}',                                                 # AWS temporary access key id
+    r'aws_secret_access_key\s*[=:]\s*[A-Za-z0-9/+]{40}',                 # AWS secret key assignment
+    r'ghp_[A-Za-z0-9]{36}',                                              # GitHub personal access token
+    r'xox[baprs]-[A-Za-z0-9-]{10,}',                                     # Slack token
+    r'eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}',       # JWT (header.payload.sig)
+    r'-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----',      # private-key header
+    r'(?:password|passwd|pwd|secret|token|api[_-]?key)\s*[=:]\s*[^\s<>]{6,}',  # credential assignment
+]
+
+# Substring keywords for TRIAGING a line / filename as notable (cheap, case-insensitive).
+SECRET_KEYWORDS = [
+    "flag", "ctf", "secret", "password", "passwd", "credential",
+    "api_key", "apikey", "token", "private key", "id_rsa",
+    "key", "pass", "hidden", "admin",
+]
+
+_SECRET_RE = re.compile("|".join(SECRET_PATTERNS), re.IGNORECASE)
+
+def find_secrets(text, patterns=None):
+    """Sorted unique secret/flag tokens in text. Uses SECRET_PATTERNS; override with patterns=."""
+    if not text:
+        return []
+    rx = _SECRET_RE if patterns is None else re.compile("|".join(patterns), re.IGNORECASE)
+    return sorted(set(m if isinstance(m, str) else m[0] for m in rx.findall(text)))
+
+def looks_like_secret(text, patterns=None):
+    """True if text contains any secret/flag token (SECRET_PATTERNS; override with patterns=)."""
+    if not text:
+        return False
+    rx = _SECRET_RE if patterns is None else re.compile("|".join(patterns), re.IGNORECASE)
+    return bool(rx.search(text))
 
 _MCP_TOOL_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool_logger.log")
 _mcp_tool_logger = logging.getLogger("mcp_tool_logger")
@@ -361,8 +409,8 @@ class HexStrikeClient:
                 # Boost if output contains meaningful data
                 if stdout and len(stdout.strip()) > 50:
                     score = 0.8
-                # Boost if flag-like patterns found
-                if any(p in stdout for p in ["CTF{", "picoCTF{", "flag{", "FLAG{", "htb{"]):
+                # Boost if a flag/secret-like token is present (central SECRET_PATTERNS)
+                if looks_like_secret(stdout):
                     score = 1.0
             elif success is False or error:
                 score = 0.2
