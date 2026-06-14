@@ -16713,7 +16713,7 @@ def blockchain_exploit():
         if not rpc_url:
             return jsonify({"error": "rpc_url parameter is required"}), 400
 
-        import shlex, shutil
+        import shlex, shutil, json
         cast_bin = shutil.which("cast")
         if not cast_bin:
             _fp = os.path.expanduser("~/.foundry/bin/cast")   # foundryup installs here; may not be on the server's PATH
@@ -16759,6 +16759,26 @@ def blockchain_exploit():
 
         logger.info(f"⛓️ Blockchain {action} via cast → {to or rpc_url}")
         res = execute_command(cmd, use_cache=False)
+
+        # Foundry compatibility: with some cast/RPC-node combinations `cast call` puts BOTH `input`
+        # and `data` in the eth_call object, and strict nodes reject it ("duplicate field `data`").
+        # Retry as a hand-built eth_call that sends ONLY `data` — calldata is encoded locally by
+        # `cast calldata` (no node involved), so the request we send carries a single calldata field.
+        _blob = ((res.get("stderr", "") or "") + " " + (res.get("stdout", "") or "")).lower()
+        _dup = "duplicate field" in _blob or ("both" in _blob and "input" in _blob and "data" in _blob)
+        if action == "call" and not res.get("success", False) and _dup:
+            cd_cmd = f"FOUNDRY_DISABLE_NIGHTLY_WARNING=1 {cast_q} calldata {shlex.quote(sig)}"
+            if args:
+                cd_cmd += f" {args}"
+            cd = execute_command(cd_cmd, use_cache=False)
+            _cd_out = (cd.get("stdout", "") or "").strip()
+            calldata = _cd_out.splitlines()[-1].strip() if _cd_out else ""
+            if calldata.startswith("0x"):
+                call_obj = json.dumps({"to": to, "data": calldata})
+                cmd = f"FOUNDRY_DISABLE_NIGHTLY_WARNING=1 {cast_q} rpc eth_call {shlex.quote(call_obj)} latest --rpc-url {r_q}"
+                res = execute_command(cmd, use_cache=False)
+                result["workaround"] = "cast call emitted duplicate input/data; retried via 'cast rpc eth_call' (data-only); output is raw hex"
+
         result["output"] = res.get("stdout", "")
         result["stderr"] = res.get("stderr", "")
         result["success"] = res.get("success", False)
