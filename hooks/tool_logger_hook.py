@@ -8,11 +8,11 @@ import logging
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 LOG_FILE = os.path.join(PROJECT_DIR, "tool_logger.log")
-CONFIG_FILE = os.path.join(PROJECT_DIR, "hexstrike_config.json")
+CONFIG_FILE = os.path.join(PROJECT_DIR, "pentrai_config.json")
 
 # The MCP server key as shown by `claude mcp list`.
-# Hook receives hexstrike MCP tool calls as "mcp__hexstrike-ai__<tool_name>".
-HEXSTRIKE_MCP_PREFIX = "mcp__hexstrike-ai__"
+# Hook receives pentrai MCP tool calls as "mcp__pentrai__<tool_name>".
+PENTRAI_MCP_PREFIX = "mcp__pentrai__"
 
 _logger = logging.getLogger("hook_tool_logger")
 _logger.setLevel(logging.INFO)
@@ -62,9 +62,9 @@ def main():
     tool_name = event.get("tool_name") or event.get("name") or "unknown"
     tool_input = event.get("tool_input") or event.get("input") or {}
 
-    # Hexstrike MCP tools are logged by the MCP-side logger in hexstrike_mcp.py.
+    # Pentrai MCP tools are logged by the MCP-side logger in pentrai_mcp.py.
     # Detect them by prefix so the list stays current as new tools are added to the server.
-    if tool_name.startswith(HEXSTRIKE_MCP_PREFIX):
+    if tool_name.startswith(PENTRAI_MCP_PREFIX):
         return
 
     config = _load_config()
@@ -76,13 +76,13 @@ def main():
 
     params_summary = _summarise_input(tool_input)
 
-    # hexfix #5: during Exp 2/3 (hexstrike-tools-only), any native tool call is a constraint
+    # pentrafix #5: during Exp 2/3 (pentrai-tools-only), any native tool call is a constraint
     # violation. Flag it in the log when the active experiment can be detected via prompt_type.
     prompt_type = str(config.get("prompt_type", "")).lower()
     is_strict = "experiment" in prompt_type and ("2" in prompt_type or "3" in prompt_type)
     if is_strict:
         _logger.info(
-            f"NATIVE TOOL | tool={tool_name} | params={params_summary} | ⚠️ CONSTRAINT_VIOLATION ({prompt_type})"
+            f"NATIVE TOOL | tool={tool_name} | params={params_summary} | CONSTRAINT_VIOLATION ({prompt_type})"
         )
     else:
         _logger.info(f"NATIVE TOOL | tool={tool_name} | params={params_summary}")

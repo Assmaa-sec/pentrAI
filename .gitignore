@@ -1,12 +1,12 @@
 .pyc
 __pycache__/
-hexstrike-env/
+pentrai-env/
 .mcp.json
-hexstrike_config.json
+pentrai_config.json
 
 # GET A BETTER EXP - 'log'
 tool_logger.log
-hexstrike.log
+pentrai.log
 log-*
 
 # TO REMOVE

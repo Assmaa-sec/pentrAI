@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-HexStrike Experiment-Prompt Generator — STANDALONE
+PentrAI Experiment-Prompt Generator — STANDALONE
 ===================================================
 A tiny GUI to build the full Prompt (STEP 1 setup + STEP 2 task) for a CTF
 experiment run, with the strategy preamble and tool nudges baked in.
 
-Standalone on purpose: it does NOT import hexstrike and does NOT need the
+Standalone on purpose: it does NOT import pentrai and does NOT need the
 server running. The prompt logic below MIRRORS the server endpoint
 `/api/ctf/get-experiment-prompt` (keep the two in sync if you change either).
 
@@ -21,7 +21,7 @@ import sys
 
 
 # ---------------------------------------------------------------------------
-# Prompt logic — mirrors hexstrike_server.py get_experiment_prompt()
+# Prompt logic — mirrors pentrai_server.py get_experiment_prompt()
 # ---------------------------------------------------------------------------
 
 def build_prompt(model, client, experiment, name, category, difficulty, has_src, desc):
@@ -101,16 +101,16 @@ def build_prompt(model, client, experiment, name, category, difficulty, has_src,
 
     headers = {
         1: ("EXPERIMENT 1 — Free Solve\n"
-            "You may use any tools available (hexstrike and native) to solve this challenge.\n"
+            "You may use any tools available (pentrai and native) to solve this challenge.\n"
             "Focus on efficiency: form a hypothesis first, then validate.\n"),
-        2: ("EXPERIMENT 2 — HexStrike Tools Only (Ranked)\n"
-            "CONSTRAINT: You MUST use ONLY hexstrike: tools. Do NOT use Bash, Read, Write, or any native tools.\n"
-            "Using any tool not prefixed with hexstrike: will invalidate this experiment.\n"
-            "HexStrike tools are ranked by relevance — prefer higher-ranked tools.\n"),
-        3: ("EXPERIMENT 3 — HexStrike Tools Only (Strict Adherence)\n"
-            "ABSOLUTE CONSTRAINT: ONLY hexstrike: prefixed tools exist in this environment.\n"
+        2: ("EXPERIMENT 2 — PentrAI Tools Only (Ranked)\n"
+            "CONSTRAINT: You MUST use ONLY pentrai: tools. Do NOT use Bash, Read, Write, or any native tools.\n"
+            "Using any tool not prefixed with pentrai: will invalidate this experiment.\n"
+            "PentrAI tools are ranked by relevance — prefer higher-ranked tools.\n"),
+        3: ("EXPERIMENT 3 — PentrAI Tools Only (Strict Adherence)\n"
+            "ABSOLUTE CONSTRAINT: ONLY pentrai: prefixed tools exist in this environment.\n"
             "Bash, Read, Write, and ALL native tools are DISABLED and will FAIL if called.\n"
-            "Using any non-hexstrike tool invalidates this experiment.\n"
+            "Using any non-pentrai tool invalidates this experiment.\n"
             "You MUST follow the ranked tool order strictly.\n"),
     }
     header = headers.get(int(experiment), headers[1])
@@ -145,7 +145,7 @@ def run_gui():
     from tkinter import ttk
 
     root = tk.Tk()
-    root.title("HexStrike — Experiment Prompt Generator")
+    root.title("PentrAI — Experiment Prompt Generator")
     root.geometry("860x720")
 
     frm = ttk.Frame(root, padding=10)
@@ -209,7 +209,7 @@ def run_gui():
     def copy():
         root.clipboard_clear()
         root.clipboard_append(out.get("1.0", "end").strip())
-        status.config(text="Copied to clipboard ✔")
+        status.config(text="Copied to clipboard ")
 
     btns = ttk.Frame(frm)
     btns.grid(row=row, column=1, sticky="w", pady=6)
@@ -227,7 +227,7 @@ def run_cli():
     def ask(label, default=""):
         v = input(f"{label}{f' [{default}]' if default else ''}: ").strip()
         return v or default
-    print("=== HexStrike prompt generator (CLI) ===")
+    print("=== PentrAI prompt generator (CLI) ===")
     model = ask("Model", "deepseek-chat")
     client = ask("Client", "roo-code")
     experiment = ask("Experiment (1/2/3)", "3")

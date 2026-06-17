@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "pentrai": {
+      "command": "python3",
+      "args": [
+        "/path/pentrai_mcp.py",
+        "--server",
+        "http://IPADDRESS:8888"
+      ],
+      "description": "PentrAI - Advanced Cybersecurity Automation Platform. Turn off alwaysAllow if you dont want autonomous execution!",
+      "timeout": 300,
+      "alwaysAllow": []
+    }
+  }
+}

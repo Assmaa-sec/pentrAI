@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HexStrike LLM API Proxy
+PentrAI LLM API Proxy
 =======================
 Sits between any OpenAI-compatible client (roo-code, 5ire, trae, cursor, etc.)
 and the real LLM API (DeepSeek, OpenAI, etc.).
@@ -28,7 +28,7 @@ from flask import Flask, request, Response, stream_with_context
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG_FILE    = os.path.join(PROJECT_DIR, "tool_logger.log")
-CONFIG_FILE = os.path.join(PROJECT_DIR, "hexstrike_config.json")
+CONFIG_FILE = os.path.join(PROJECT_DIR, "pentrai_config.json")
 
 # ---------------------------------------------------------------------------
 # Loggers
@@ -81,10 +81,10 @@ def _is_session_active(config: dict) -> bool:
 # ---------------------------------------------------------------------------
 
 def _log_tool_call(tool_name: str, tool_args: dict) -> None:
-    # Skip HexStrike MCP tools regardless of how the client namespaces them
-    # (Claude uses "mcp__hexstrike-ai__"; other clients vary). They are logged
-    # MCP-side by hexstrike_mcp.py, so logging them here would double-count them.
-    if "hexstrike" in tool_name.lower():
+    # Skip PentrAI MCP tools regardless of how the client namespaces them
+    # (Claude uses "mcp__pentrai__"; other clients vary). They are logged
+    # MCP-side by pentrai_mcp.py, so logging them here would double-count them.
+    if "pentrai" in tool_name.lower():
         return
 
     config = _load_config()
@@ -166,21 +166,21 @@ def proxy(path: str):
     except Exception:
         body = {}
 
-    # --- 5ire / tool constraint enforcement (hexfix #3) ---
+    # --- 5ire / tool constraint enforcement (pentrafix #3) ---
     # Inject system-level constraint into chat completions to steer LLMs
-    # toward hexstrike tools and away from native client tools
+    # toward pentrai tools and away from native client tools
     if path.startswith("chat/completions") and isinstance(body.get("messages"), list):
         config = _load_config()
         if _is_session_active(config):
             constraint_msg = {
                 "role": "system",
                 "content": (
-                    "CRITICAL CONSTRAINT: Use ONLY the HexStrike MCP tools provided in this environment. "
+                    "CRITICAL CONSTRAINT: Use ONLY the PentrAI MCP tools provided in this environment. "
                     "Do NOT use Bash, Read, Write, or any native/built-in client tools — they are disabled here. "
                     "For binary exploitation use pwntools_exploit. "
                     "For Python scripts use execute_python_script. "
                     "For HTTP requests use http_framework_test. "
-                    "To run a shell command use the HexStrike execute_command tool."
+                    "To run a shell command use the PentrAI execute_command tool."
                 )
             }
             # Insert after existing system messages but before user messages
@@ -248,7 +248,7 @@ def proxy(path: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="HexStrike LLM API proxy — logs all LLM tool_calls"
+        description="PentrAI LLM API proxy — logs all LLM tool_calls"
     )
     parser.add_argument(
         "--backend", default="https://api.deepseek.com",
@@ -273,10 +273,10 @@ def main():
     BACKEND_URL = args.backend.rstrip("/")
     UPSTREAM_PROXY = args.upstream_proxy.strip()
 
-    print(f"[hexstrike-proxy] Listening on http://{args.host}:{args.port}/v1")
-    print(f"[hexstrike-proxy] Forwarding to {BACKEND_URL}")
-    print(f"[hexstrike-proxy] Logging to {LOG_FILE}")
-    print(f"[hexstrike-proxy] Set client Base URL = http://{args.host}:{args.port}/v1")
+    print(f"[pentrai-proxy] Listening on http://{args.host}:{args.port}/v1")
+    print(f"[pentrai-proxy] Forwarding to {BACKEND_URL}")
+    print(f"[pentrai-proxy] Logging to {LOG_FILE}")
+    print(f"[pentrai-proxy] Set client Base URL = http://{args.host}:{args.port}/v1")
 
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
     app.run(host=args.host, port=args.port, debug=False, threaded=True)
