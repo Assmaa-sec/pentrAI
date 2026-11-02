@@ -16,7 +16,7 @@ not gates.
 from __future__ import annotations
 
 from ..config import Settings
-from ..contracts import AttackPlan, Finding, ReconResult, Target
+from ..contracts import AttackPlan, Confidence, Finding, ReconResult, Severity, Target
 
 
 def synthesize(findings: list[Finding], recon: ReconResult, target: Target, settings: Settings) -> AttackPlan:
@@ -32,4 +32,24 @@ def synthesize(findings: list[Finding], recon: ReconResult, target: Target, sett
 
     Pure ranking logic; no network calls.
     """
-    raise NotImplementedError("stages.synthesize.synthesize")
+    severity_weight = {Severity.INFO: 0, Severity.LOW: 1, Severity.MEDIUM: 2,
+                       Severity.HIGH: 3, Severity.CRITICAL: 4}
+    confidence_weight = {Confidence.LOW: 0, Confidence.MEDIUM: 1, Confidence.HIGH: 2}
+    seen: set[tuple[str, str, str, str]] = set()
+    unique: list[Finding] = []
+    for finding in findings:
+        key = (finding.source.value, finding.cve.casefold(),
+               finding.code_location.casefold(), finding.title.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(finding)
+    unique.sort(key=lambda item: (
+        -severity_weight[item.severity], -confidence_weight[item.confidence],
+        -int(item.network_reachable), item.title.casefold(), item.id,
+    ))
+    return AttackPlan(
+        hypotheses=unique[:max(0, settings.max_findings_to_validate)],
+        rationale="Ranked by severity, confidence, and observed reachability; all remain hypotheses.",
+        posture=target.posture,
+    )

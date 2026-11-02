@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from ..config import Settings
 from ..contracts import Finding, IngestResult, ReconResult
+from ..agents.analyst_agent import AnalystAgent
+from ..agents.llm import LLMClient
 
 
 def analyze_sast(ingest: IngestResult, recon: ReconResult, settings: Settings) -> list[Finding]:
@@ -37,4 +39,4 @@ def analyze_sast(ingest: IngestResult, recon: ReconResult, settings: Settings) -
 
     Emits FindingSource.SAST findings. Safe to run in parallel with SCA.
     """
-    raise NotImplementedError("stages.analyze_sast.analyze_sast")
+    return AnalystAgent(LLMClient(settings.llm), settings).find_bugs(ingest, recon)

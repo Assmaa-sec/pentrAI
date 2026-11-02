@@ -78,6 +78,8 @@ class Settings:
     # unbounded tokens attempting one hypothesis.
     max_exploit_steps_per_finding: int = 20
     max_findings_to_validate: int = 25
+    llm_source_consent: bool = field(default_factory=lambda: os.getenv("PENTRAI_MODEL_SOURCE_CONSENT", "").lower() == "true")
+    isolated_runner_verified: bool = False
 
     llm: LLMSettings = field(default_factory=LLMSettings)
     sandbox: SandboxSettings = field(default_factory=SandboxSettings)

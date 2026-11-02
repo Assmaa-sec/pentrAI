@@ -1,0 +1,2 @@
+#!/bin/sh
+exec python /opt/scanners/hash-identifier/hash-id.py "$@"

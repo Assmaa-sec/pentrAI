@@ -382,6 +382,20 @@ class PentrAIClient:
             logger.error(f"Unexpected error: {str(e)}")
             return {"error": f"Unexpected error: {str(e)}", "success": False}
 
+    def safe_delete(self, endpoint: str, json_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Perform a DELETE request with the route's JSON body."""
+        url = f"{self.server_url}/{endpoint}"
+        try:
+            response = self.session.delete(url, json=json_data, timeout=self.timeout)
+            response.raise_for_status()
+            return self._enrich_result(response.json(), "delete_file", endpoint)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {str(e)}")
+            return {"error": f"Request failed: {str(e)}", "success": False}
+        except Exception as e:
+            logger.error(f"Unexpected error: {str(e)}")
+            return {"error": f"Unexpected error: {str(e)}", "success": False}
+
     def _enrich_result(self, result: Dict[str, Any], tool_name: str, endpoint: str) -> Dict[str, Any]:
         """Add confidence_score and suggest_next_tool to tool results for LLM feedback loop"""
         try:
@@ -1192,7 +1206,7 @@ def setup_mcp_server(pentrai_client: PentrAIClient) -> FastMCP:
             "filename": filename
         }
         logger.info(f" Deleting file: {filename}")
-        result = pentrai_client.safe_post("api/files/delete", data)
+        result = pentrai_client.safe_delete("api/files/delete", data)
         if result.get("success"):
             logger.info(f"File deleted successfully: {filename}")
         else:

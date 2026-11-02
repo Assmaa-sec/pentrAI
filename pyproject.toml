@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pentrai-product"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.142.2",
+  "psycopg[binary]==3.3.6",
+  "authlib==1.8.0",
+  "joserfc==1.7.5",
+  "sqlalchemy==2.1.3",
+  "alembic==1.20.0",
+  "pydantic==2.13.5",
+  "httpx==0.28.1",
+  "requests==2.34.2",
+  "uvicorn==0.54.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1", "httpx2==2.13.1"]
+runner = ["mcp>=1.28,<2"]
+
+[tool.setuptools.packages.find]
+include = ["control_plane*", "execution_manager*", "pentrai_pipeline*", "static_worker*"]

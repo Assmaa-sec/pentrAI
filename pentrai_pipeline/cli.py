@@ -10,7 +10,7 @@ exists (the front-end is deliberately last).
 from __future__ import annotations
 
 import argparse
-import os
+import json
 import sys
 
 from .config import Settings
@@ -68,6 +68,12 @@ def main(argv: list[str] | None = None) -> int:
     from .orchestrator import run_pipeline
 
     result = run_pipeline(target, settings)
+
+    if args.json:
+        from .serialization import pipeline_result_dict
+
+        print(json.dumps(pipeline_result_dict(result), ensure_ascii=False))
+        return 0
 
     # Reporting of the run is intentionally minimal until stages are implemented.
     print(f"[pentrai-pipeline] target={target.source_ref} posture={target.posture.value}")

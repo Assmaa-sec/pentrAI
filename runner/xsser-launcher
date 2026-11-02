@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+run_dir=$(mktemp -d /job/tmp/xsser.XXXXXX)
+cp -R /opt/scanners/xsser-src/. "$run_dir/"
+cd "$run_dir"
+exec /opt/scanners/xsser/bin/python ./xsser "$@"

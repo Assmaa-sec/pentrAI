@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+suite=/opt/scanners/hashcat-utils/bin
+if [ "${1:-}" = "--list" ]; then
+  for utility in "$suite"/*.bin; do
+    [ -x "$utility" ] || continue
+    basename "$utility" .bin
+  done
+  exit 0
+fi
+
+utility=${1:-}
+case "$utility" in
+  ''|*[!A-Za-z0-9_-]*)
+    echo 'usage: hashcat-utils --list | <utility> [arguments...]' >&2
+    exit 2
+    ;;
+esac
+shift
+binary="$suite/$utility.bin"
+if [ ! -x "$binary" ]; then
+  echo "unknown hashcat-utils utility: $utility" >&2
+  exit 2
+fi
+exec "$binary" "$@"

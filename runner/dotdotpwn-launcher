@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+run_dir=$(mktemp -d /job/tmp/dotdotpwn.XXXXXX)
+cp -R /opt/scanners/dotdotpwn/. "$run_dir/"
+cd "$run_dir"
+exec perl ./dotdotpwn.pl "$@"

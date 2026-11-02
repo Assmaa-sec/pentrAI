@@ -1,0 +1,5 @@
+#!/bin/sh
+export JAVA_HOME=/opt/ghidra-jdk
+export PATH="$JAVA_HOME/bin:$PATH"
+export XDG_CACHE_HOME=/job/tmp
+exec /opt/ghidra/ghidra_12.2_PUBLIC/support/analyzeHeadless "$@"

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+HOME=/opt/exploitdb
+export HOME
+exec /opt/exploitdb/searchsploit "$@"

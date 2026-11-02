@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+cd /opt/scanners/spiderfoot-src
+exec /opt/scanners/spiderfoot/bin/python sf.py "$@"

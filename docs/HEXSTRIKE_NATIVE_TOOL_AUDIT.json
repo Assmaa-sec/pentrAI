@@ -1,0 +1,2366 @@
+{
+  "schema_version": 1,
+  "total_mcp_tools": 169,
+  "counts": {
+    "route_bound": 164,
+    "mcp_local_or_composite": 4,
+    "missing_route": 1
+  },
+  "tools": [
+    {
+      "name": "advanced_payload_generation",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/ai/advanced-payload-generation"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/ai/advanced-payload-generation"
+      ],
+      "source_line": 4497
+    },
+    {
+      "name": "ai_generate_attack_suite",
+      "status": "mcp_local_or_composite",
+      "requested_endpoints": [],
+      "requested_methods": [],
+      "matched_routes": [],
+      "source_line": 3210
+    },
+    {
+      "name": "ai_generate_payload",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/ai/generate_payload"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/ai/generate_payload"
+      ],
+      "source_line": 3134
+    },
+    {
+      "name": "ai_reconnaissance_workflow",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/analyze-target",
+        "api/intelligence/create-attack-chain",
+        "api/intelligence/smart-scan"
+      ],
+      "requested_methods": [
+        "POST",
+        "POST",
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/analyze-target",
+        "/api/intelligence/create-attack-chain",
+        "/api/intelligence/smart-scan"
+      ],
+      "source_line": 5099
+    },
+    {
+      "name": "ai_test_payload",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/ai/test_payload"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/ai/test_payload"
+      ],
+      "source_line": 3175
+    },
+    {
+      "name": "ai_vulnerability_assessment",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/analyze-target",
+        "api/intelligence/smart-scan"
+      ],
+      "requested_methods": [
+        "POST",
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/analyze-target",
+        "/api/intelligence/smart-scan"
+      ],
+      "source_line": 5148
+    },
+    {
+      "name": "amass_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/amass"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/amass"
+      ],
+      "source_line": 1616
+    },
+    {
+      "name": "analyze_target_intelligence",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/analyze-target"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/analyze-target"
+      ],
+      "source_line": 4893
+    },
+    {
+      "name": "anew_data_processing",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/anew"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/anew"
+      ],
+      "source_line": 3047
+    },
+    {
+      "name": "angr_symbolic_execution",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/angr"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/angr"
+      ],
+      "source_line": 2496
+    },
+    {
+      "name": "api_fuzzer",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/api_fuzzer"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/api_fuzzer"
+      ],
+      "source_line": 3271
+    },
+    {
+      "name": "api_schema_analyzer",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/api_schema_analyzer"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/api_schema_analyzer"
+      ],
+      "source_line": 3388
+    },
+    {
+      "name": "arjun_parameter_discovery",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/arjun"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/arjun"
+      ],
+      "source_line": 2834
+    },
+    {
+      "name": "arjun_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/arjun"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/arjun"
+      ],
+      "source_line": 3833
+    },
+    {
+      "name": "arp_scan_discovery",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/arp-scan"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/arp-scan"
+      ],
+      "source_line": 1994
+    },
+    {
+      "name": "autorecon_comprehensive",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/autorecon"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/autorecon"
+      ],
+      "source_line": 1853
+    },
+    {
+      "name": "autorecon_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/autorecon"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/autorecon"
+      ],
+      "source_line": 3945
+    },
+    {
+      "name": "binwalk_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/binwalk"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/binwalk"
+      ],
+      "source_line": 2182
+    },
+    {
+      "name": "blind_sqli_extractor",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/ctf/blind-sqli-extract"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/ctf/blind-sqli-extract"
+      ],
+      "source_line": 5760
+    },
+    {
+      "name": "blockchain_exploit",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/blockchain-exploit"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/blockchain-exploit"
+      ],
+      "source_line": 6058
+    },
+    {
+      "name": "browser_agent_inspect",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/browser-agent"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/browser-agent"
+      ],
+      "source_line": 5501
+    },
+    {
+      "name": "bugbounty_authentication_bypass_testing",
+      "status": "mcp_local_or_composite",
+      "requested_endpoints": [],
+      "requested_methods": [],
+      "matched_routes": [],
+      "source_line": 5389
+    },
+    {
+      "name": "bugbounty_business_logic_testing",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/bugbounty/business-logic-workflow"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/bugbounty/business-logic-workflow"
+      ],
+      "source_line": 5272
+    },
+    {
+      "name": "bugbounty_comprehensive_assessment",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/bugbounty/comprehensive-assessment"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/bugbounty/comprehensive-assessment"
+      ],
+      "source_line": 5351
+    },
+    {
+      "name": "bugbounty_file_upload_testing",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/bugbounty/file-upload-testing"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/bugbounty/file-upload-testing"
+      ],
+      "source_line": 5326
+    },
+    {
+      "name": "bugbounty_osint_gathering",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/bugbounty/osint-workflow"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/bugbounty/osint-workflow"
+      ],
+      "source_line": 5301
+    },
+    {
+      "name": "bugbounty_reconnaissance_workflow",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/bugbounty/reconnaissance-workflow"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/bugbounty/reconnaissance-workflow"
+      ],
+      "source_line": 5208
+    },
+    {
+      "name": "bugbounty_vulnerability_hunting",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/bugbounty/vulnerability-hunting-workflow"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/bugbounty/vulnerability-hunting-workflow"
+      ],
+      "source_line": 5241
+    },
+    {
+      "name": "burpsuite_alternative_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/burpsuite-alternative"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/burpsuite-alternative"
+      ],
+      "source_line": 5585
+    },
+    {
+      "name": "burpsuite_scan",
+      "status": "missing_route",
+      "requested_endpoints": [
+        "api/tools/burpsuite"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [],
+      "source_line": 3759
+    },
+    {
+      "name": "checkov_iac_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/checkov"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/checkov"
+      ],
+      "source_line": 1071
+    },
+    {
+      "name": "checksec_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/checksec"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/checksec"
+      ],
+      "source_line": 2234
+    },
+    {
+      "name": "clair_vulnerability_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/clair"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/clair"
+      ],
+      "source_line": 1010
+    },
+    {
+      "name": "clear_cache",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/cache/clear"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/cache/clear"
+      ],
+      "source_line": 4117
+    },
+    {
+      "name": "cloudmapper_analysis",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/cloudmapper"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/cloudmapper"
+      ],
+      "source_line": 852
+    },
+    {
+      "name": "comprehensive_api_audit",
+      "status": "mcp_local_or_composite",
+      "requested_endpoints": [],
+      "requested_methods": [],
+      "matched_routes": [],
+      "source_line": 3433
+    },
+    {
+      "name": "compression_oracle",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/compression-oracle"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/compression-oracle"
+      ],
+      "source_line": 5950
+    },
+    {
+      "name": "correlate_threat_intelligence",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/vuln-intel/threat-feeds"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/vuln-intel/threat-feeds"
+      ],
+      "source_line": 4451
+    },
+    {
+      "name": "create_attack_chain_ai",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/create-attack-chain"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/create-attack-chain"
+      ],
+      "source_line": 4982
+    },
+    {
+      "name": "create_file",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/files/create"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/files/create"
+      ],
+      "source_line": 1143
+    },
+    {
+      "name": "create_scan_summary",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/visual/summary-report"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/visual/summary-report"
+      ],
+      "source_line": 4808
+    },
+    {
+      "name": "create_vulnerability_report",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/visual/summary-report",
+        "api/visual/vulnerability-card"
+      ],
+      "requested_methods": [
+        "POST",
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/visual/summary-report",
+        "/api/visual/vulnerability-card"
+      ],
+      "source_line": 4725
+    },
+    {
+      "name": "dalfox_xss_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/dalfox"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/dalfox"
+      ],
+      "source_line": 2970
+    },
+    {
+      "name": "decompose_challenge",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/ctf/decompose-challenge"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/ctf/decompose-challenge"
+      ],
+      "source_line": 5722
+    },
+    {
+      "name": "delete_file",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/files/delete"
+      ],
+      "requested_methods": [
+        "DELETE"
+      ],
+      "matched_routes": [
+        "/api/files/delete"
+      ],
+      "source_line": 1195
+    },
+    {
+      "name": "detect_technologies_ai",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/technology-detection"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/technology-detection"
+      ],
+      "source_line": 5067
+    },
+    {
+      "name": "dirb_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/dirb"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/dirb"
+      ],
+      "source_line": 1329
+    },
+    {
+      "name": "dirsearch_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/dirsearch"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/dirsearch"
+      ],
+      "source_line": 2705
+    },
+    {
+      "name": "discover_attack_chains",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/vuln-intel/attack-chains"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/vuln-intel/attack-chains"
+      ],
+      "source_line": 4380
+    },
+    {
+      "name": "disk_image_mount",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/disk-image-mount"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/disk-image-mount"
+      ],
+      "source_line": 5804
+    },
+    {
+      "name": "display_system_metrics",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/telemetry"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/telemetry"
+      ],
+      "source_line": 4844
+    },
+    {
+      "name": "dnsenum_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/dnsenum"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/dnsenum"
+      ],
+      "source_line": 3917
+    },
+    {
+      "name": "docker_bench_security_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/docker-bench-security"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/docker-bench-security"
+      ],
+      "source_line": 980
+    },
+    {
+      "name": "dotdotpwn_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/dotdotpwn"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/dotdotpwn"
+      ],
+      "source_line": 2623
+    },
+    {
+      "name": "enum4linux_ng_advanced",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/enum4linux-ng"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/enum4linux-ng"
+      ],
+      "source_line": 1890
+    },
+    {
+      "name": "enum4linux_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/enum4linux"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/enum4linux"
+      ],
+      "source_line": 1528
+    },
+    {
+      "name": "error_handling_statistics",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/error-handling/statistics"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/error-handling/statistics"
+      ],
+      "source_line": 5646
+    },
+    {
+      "name": "evtx_parser",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/evtx-parser"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/evtx-parser"
+      ],
+      "source_line": 5912
+    },
+    {
+      "name": "execute_command",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/command"
+      ],
+      "requested_methods": [
+        "UNKNOWN"
+      ],
+      "matched_routes": [
+        "/api/command"
+      ],
+      "source_line": 4266
+    },
+    {
+      "name": "execute_python_script",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/python/execute"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/python/execute"
+      ],
+      "source_line": 1295
+    },
+    {
+      "name": "exiftool_extract",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/exiftool"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/exiftool"
+      ],
+      "source_line": 3622
+    },
+    {
+      "name": "falco_runtime_monitoring",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/falco"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/falco"
+      ],
+      "source_line": 1039
+    },
+    {
+      "name": "feroxbuster_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/feroxbuster"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/feroxbuster"
+      ],
+      "source_line": 2595
+    },
+    {
+      "name": "ffuf_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/ffuf"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/ffuf"
+      ],
+      "source_line": 1552
+    },
+    {
+      "name": "fierce_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/fierce"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/fierce"
+      ],
+      "source_line": 3891
+    },
+    {
+      "name": "foremost_carving",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/foremost"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/foremost"
+      ],
+      "source_line": 3561
+    },
+    {
+      "name": "format_tool_output_visual",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/visual/tool-output"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/visual/tool-output"
+      ],
+      "source_line": 4779
+    },
+    {
+      "name": "gau_discovery",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/gau"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/gau"
+      ],
+      "source_line": 2773
+    },
+    {
+      "name": "gdb_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/gdb"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/gdb"
+      ],
+      "source_line": 2128
+    },
+    {
+      "name": "gdb_peda_debug",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/gdb-peda"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/gdb-peda"
+      ],
+      "source_line": 2465
+    },
+    {
+      "name": "generate_exploit_from_cve",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/vuln-intel/exploit-generate"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/vuln-intel/exploit-generate"
+      ],
+      "source_line": 4341
+    },
+    {
+      "name": "generate_payload",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/payloads/generate"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/payloads/generate"
+      ],
+      "source_line": 1237
+    },
+    {
+      "name": "get_cache_stats",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/cache/stats"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/cache/stats"
+      ],
+      "source_line": 4103
+    },
+    {
+      "name": "get_ctf_session_info",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/config/get-ctf-meta"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/config/get-ctf-meta"
+      ],
+      "source_line": 596
+    },
+    {
+      "name": "get_live_dashboard",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/processes/dashboard"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/processes/dashboard"
+      ],
+      "source_line": 4709
+    },
+    {
+      "name": "get_llm_identity",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/config/get-identity"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/config/get-identity"
+      ],
+      "source_line": 518
+    },
+    {
+      "name": "get_process_dashboard",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/processes/dashboard"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/processes/dashboard"
+      ],
+      "source_line": 4243
+    },
+    {
+      "name": "get_process_status",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/processes/status/_value_"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/processes/status/<int:pid>"
+      ],
+      "source_line": 4167
+    },
+    {
+      "name": "get_telemetry",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/telemetry"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/telemetry"
+      ],
+      "source_line": 4133
+    },
+    {
+      "name": "ghidra_analysis",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/ghidra"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/ghidra"
+      ],
+      "source_line": 2340
+    },
+    {
+      "name": "gobuster_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/gobuster"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/gobuster"
+      ],
+      "source_line": 653
+    },
+    {
+      "name": "graphql_scanner",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/graphql_scanner"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/graphql_scanner"
+      ],
+      "source_line": 3307
+    },
+    {
+      "name": "hakrawler_crawl",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/hakrawler"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/hakrawler"
+      ],
+      "source_line": 3684
+    },
+    {
+      "name": "hashcat_crack",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/hashcat"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/hashcat"
+      ],
+      "source_line": 1642
+    },
+    {
+      "name": "hashpump_attack",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/hashpump"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/hashpump"
+      ],
+      "source_line": 3650
+    },
+    {
+      "name": "http_framework_test",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/http-framework"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/http-framework"
+      ],
+      "source_line": 5454
+    },
+    {
+      "name": "http_intruder",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/http-framework"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/http-framework"
+      ],
+      "source_line": 5568
+    },
+    {
+      "name": "http_repeater",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/http-framework"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/http-framework"
+      ],
+      "source_line": 5562
+    },
+    {
+      "name": "http_set_rules",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/http-framework"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/http-framework"
+      ],
+      "source_line": 5549
+    },
+    {
+      "name": "http_set_scope",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/http-framework"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/http-framework"
+      ],
+      "source_line": 5556
+    },
+    {
+      "name": "httpx_probe",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/httpx"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/httpx"
+      ],
+      "source_line": 3006
+    },
+    {
+      "name": "hydra_attack",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/hydra"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/hydra"
+      ],
+      "source_line": 1429
+    },
+    {
+      "name": "install_python_package",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/python/install"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/python/install"
+      ],
+      "source_line": 1271
+    },
+    {
+      "name": "intelligent_smart_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/smart-scan"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/smart-scan"
+      ],
+      "source_line": 5014
+    },
+    {
+      "name": "jaeles_vulnerability_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/jaeles"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/jaeles"
+      ],
+      "source_line": 2936
+    },
+    {
+      "name": "john_crack",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/john"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/john"
+      ],
+      "source_line": 1471
+    },
+    {
+      "name": "jwt_analyzer",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/jwt_analyzer"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/jwt_analyzer"
+      ],
+      "source_line": 3349
+    },
+    {
+      "name": "katana_crawl",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/katana"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/katana"
+      ],
+      "source_line": 2739
+    },
+    {
+      "name": "kube_bench_cis",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/kube-bench"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/kube-bench"
+      ],
+      "source_line": 949
+    },
+    {
+      "name": "kube_hunter_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/kube-hunter"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/kube-hunter"
+      ],
+      "source_line": 913
+    },
+    {
+      "name": "libc_database_lookup",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/libc-database"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/libc-database"
+      ],
+      "source_line": 2436
+    },
+    {
+      "name": "list_active_processes",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/processes/list"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/processes/list"
+      ],
+      "source_line": 4151
+    },
+    {
+      "name": "list_files",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/files/list"
+      ],
+      "requested_methods": [
+        "GET"
+      ],
+      "matched_routes": [
+        "/api/files/list"
+      ],
+      "source_line": 1217
+    },
+    {
+      "name": "masscan_high_speed",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/masscan"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/masscan"
+      ],
+      "source_line": 1772
+    },
+    {
+      "name": "metasploit_run",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/metasploit"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/metasploit"
+      ],
+      "source_line": 1405
+    },
+    {
+      "name": "modify_file",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/files/modify"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/files/modify"
+      ],
+      "source_line": 1169
+    },
+    {
+      "name": "monitor_cve_feeds",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/vuln-intel/cve-monitor"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/vuln-intel/cve-monitor"
+      ],
+      "source_line": 4310
+    },
+    {
+      "name": "msfvenom_generate",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/msfvenom"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/msfvenom"
+      ],
+      "source_line": 2092
+    },
+    {
+      "name": "nbtscan_netbios",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/nbtscan"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/nbtscan"
+      ],
+      "source_line": 1965
+    },
+    {
+      "name": "netexec_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/netexec"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/netexec"
+      ],
+      "source_line": 1582
+    },
+    {
+      "name": "nikto_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/nikto"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/nikto"
+      ],
+      "source_line": 1355
+    },
+    {
+      "name": "nmap_advanced_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/nmap-advanced"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/nmap-advanced"
+      ],
+      "source_line": 1810
+    },
+    {
+      "name": "nmap_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/nmap"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/nmap"
+      ],
+      "source_line": 610
+    },
+    {
+      "name": "nuclei_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/nuclei"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/nuclei"
+      ],
+      "source_line": 697
+    },
+    {
+      "name": "objdump_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/objdump"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/objdump"
+      ],
+      "source_line": 2310
+    },
+    {
+      "name": "one_gadget_search",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/one-gadget"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/one-gadget"
+      ],
+      "source_line": 2410
+    },
+    {
+      "name": "optimize_tool_parameters_ai",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/optimize-parameters"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/optimize-parameters"
+      ],
+      "source_line": 4945
+    },
+    {
+      "name": "pacu_exploitation",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/pacu"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/pacu"
+      ],
+      "source_line": 881
+    },
+    {
+      "name": "paramspider_discovery",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/paramspider"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/paramspider"
+      ],
+      "source_line": 3725
+    },
+    {
+      "name": "paramspider_mining",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/paramspider"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/paramspider"
+      ],
+      "source_line": 2870
+    },
+    {
+      "name": "pause_process",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/processes/pause/_value_"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/processes/pause/<int:pid>"
+      ],
+      "source_line": 4205
+    },
+    {
+      "name": "pcap_decrypt",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/pcap-decrypt"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/pcap-decrypt"
+      ],
+      "source_line": 5830
+    },
+    {
+      "name": "prowler_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/prowler"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/prowler"
+      ],
+      "source_line": 748
+    },
+    {
+      "name": "pwninit_setup",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/pwninit"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/pwninit"
+      ],
+      "source_line": 2564
+    },
+    {
+      "name": "pwntools_exploit",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/pwntools"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/pwntools"
+      ],
+      "source_line": 2374
+    },
+    {
+      "name": "qsreplace_parameter_replacement",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/qsreplace"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/qsreplace"
+      ],
+      "source_line": 3074
+    },
+    {
+      "name": "radare2_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/radare2"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/radare2"
+      ],
+      "source_line": 2156
+    },
+    {
+      "name": "research_zero_day_opportunities",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/vuln-intel/zero-day-research"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/vuln-intel/zero-day-research"
+      ],
+      "source_line": 4414
+    },
+    {
+      "name": "responder_credential_harvest",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/responder"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/responder"
+      ],
+      "source_line": 2027
+    },
+    {
+      "name": "resume_process",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/processes/resume/_value_"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/processes/resume/<int:pid>"
+      ],
+      "source_line": 4224
+    },
+    {
+      "name": "rop_chain_builder",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/rop-chain-builder"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/rop-chain-builder"
+      ],
+      "source_line": 5859
+    },
+    {
+      "name": "ropgadget_search",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/ropgadget"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/ropgadget"
+      ],
+      "source_line": 2208
+    },
+    {
+      "name": "ropper_gadget_search",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/ropper"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/ropper"
+      ],
+      "source_line": 2530
+    },
+    {
+      "name": "rpcclient_enumeration",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/rpcclient"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/rpcclient"
+      ],
+      "source_line": 1931
+    },
+    {
+      "name": "rsa_factor",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/rsa-factor"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/rsa-factor"
+      ],
+      "source_line": 5931
+    },
+    {
+      "name": "rustscan_fast_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/rustscan"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/rustscan"
+      ],
+      "source_line": 1736
+    },
+    {
+      "name": "scout_suite_assessment",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/scout-suite"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/scout-suite"
+      ],
+      "source_line": 818
+    },
+    {
+      "name": "select_optimal_tools_ai",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/intelligence/select-tools"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/intelligence/select-tools"
+      ],
+      "source_line": 4917
+    },
+    {
+      "name": "server_health",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "health"
+      ],
+      "requested_methods": [
+        "UNKNOWN"
+      ],
+      "matched_routes": [
+        "/health"
+      ],
+      "source_line": 4087
+    },
+    {
+      "name": "set_ctf_metadata",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/config/set-ctf-meta"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/config/set-ctf-meta"
+      ],
+      "source_line": 532
+    },
+    {
+      "name": "set_llm_identity",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/config/set-identity"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/config/set-identity"
+      ],
+      "source_line": 498
+    },
+    {
+      "name": "smb_ipp_exploit",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/smb-ipp-exploit"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/smb-ipp-exploit"
+      ],
+      "source_line": 6030
+    },
+    {
+      "name": "smbmap_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/smbmap"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/smbmap"
+      ],
+      "source_line": 1702
+    },
+    {
+      "name": "sqli_order_oracle",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/sqli-order-oracle"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/sqli-order-oracle"
+      ],
+      "source_line": 5972
+    },
+    {
+      "name": "sqlmap_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/sqlmap"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/sqlmap"
+      ],
+      "source_line": 1379
+    },
+    {
+      "name": "start_timer",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/config/start-timer"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/config/start-timer"
+      ],
+      "source_line": 568
+    },
+    {
+      "name": "steghide_analysis",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/steghide"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/steghide"
+      ],
+      "source_line": 3590
+    },
+    {
+      "name": "stop_timer",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/config/stop-timer"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/config/stop-timer"
+      ],
+      "source_line": 582
+    },
+    {
+      "name": "strings_extract",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/strings"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/strings"
+      ],
+      "source_line": 2284
+    },
+    {
+      "name": "subfinder_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/subfinder"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/subfinder"
+      ],
+      "source_line": 1674
+    },
+    {
+      "name": "terminate_process",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/processes/terminate/_value_"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/processes/terminate/<int:pid>"
+      ],
+      "source_line": 4186
+    },
+    {
+      "name": "terrascan_iac_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/terrascan"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/terrascan"
+      ],
+      "source_line": 1105
+    },
+    {
+      "name": "test_error_recovery",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/error-handling/test-recovery"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/error-handling/test-recovery"
+      ],
+      "source_line": 5677
+    },
+    {
+      "name": "threat_hunting_assistant",
+      "status": "mcp_local_or_composite",
+      "requested_endpoints": [],
+      "requested_methods": [],
+      "matched_routes": [],
+      "source_line": 4599
+    },
+    {
+      "name": "timing_oracle",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/timing-oracle"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/timing-oracle"
+      ],
+      "source_line": 6000
+    },
+    {
+      "name": "trivy_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/trivy"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/trivy"
+      ],
+      "source_line": 782
+    },
+    {
+      "name": "uro_url_filtering",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/uro"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/uro"
+      ],
+      "source_line": 3101
+    },
+    {
+      "name": "volatility3_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/volatility3"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/volatility3"
+      ],
+      "source_line": 3531
+    },
+    {
+      "name": "volatility_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/volatility"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/volatility"
+      ],
+      "source_line": 2064
+    },
+    {
+      "name": "vulnerability_intelligence_dashboard",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/vuln-intel/cve-monitor",
+        "api/vuln-intel/zero-day-research"
+      ],
+      "requested_methods": [
+        "POST",
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/vuln-intel/cve-monitor",
+        "/api/vuln-intel/zero-day-research"
+      ],
+      "source_line": 4545
+    },
+    {
+      "name": "wafw00f_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/wafw00f"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/wafw00f"
+      ],
+      "source_line": 3867
+    },
+    {
+      "name": "waybackurls_discovery",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/waybackurls"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/waybackurls"
+      ],
+      "source_line": 2805
+    },
+    {
+      "name": "wfuzz_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/wfuzz"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/wfuzz"
+      ],
+      "source_line": 2675
+    },
+    {
+      "name": "wpscan_analyze",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/wpscan"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/wpscan"
+      ],
+      "source_line": 1504
+    },
+    {
+      "name": "x8_parameter_discovery",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/x8"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/x8"
+      ],
+      "source_line": 2902
+    },
+    {
+      "name": "xss_csrf_chain",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/xss-csrf-chain"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/xss-csrf-chain"
+      ],
+      "source_line": 5883
+    },
+    {
+      "name": "xsser_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/xsser"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/xsser"
+      ],
+      "source_line": 2649
+    },
+    {
+      "name": "xxd_hexdump",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/xxd"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/xxd"
+      ],
+      "source_line": 2256
+    },
+    {
+      "name": "zap_scan",
+      "status": "route_bound",
+      "requested_endpoints": [
+        "api/tools/zap"
+      ],
+      "requested_methods": [
+        "POST"
+      ],
+      "matched_routes": [
+        "/api/tools/zap"
+      ],
+      "source_line": 3795
+    }
+  ]
+}

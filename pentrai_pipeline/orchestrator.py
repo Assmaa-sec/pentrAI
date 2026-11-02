@@ -49,6 +49,9 @@ def run_pipeline(target: Target, settings: Optional[Settings] = None, job: Optio
         job.enter(JobStatus.INGESTING)
         result.ingest = ingest.ingest(target, settings)
 
+        if not settings.isolated_runner_verified:
+            raise PermissionError("dynamic pipeline requires a verified isolated runner; use the static product flow locally")
+
         # 2. DEPLOY — build + run inside the isolated, egress-controlled sandbox.
         job.enter(JobStatus.DEPLOYING)
         deployed = sandbox.deploy(result.ingest, settings)

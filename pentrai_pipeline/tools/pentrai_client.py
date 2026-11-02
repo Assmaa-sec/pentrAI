@@ -1,13 +1,7 @@
-"""
-HTTP client for the existing PentrAI tool server (`pentrai_server.py`, default
-127.0.0.1:8888). This is the pipeline's single door to the 150-tool catalog:
-recon and the operator agent call tools through here rather than shelling out
-themselves, so tool logging, timeouts, and (critically) target scoping all live in
-one place.
+"""Compatibility facade for a job-owned, policy-limited tool harness.
 
-Scoping is a safety invariant: every call is meant for the sandboxed target. The
-client is the natural chokepoint to assert that a tool's target is the isolated
-instance and nothing else (see docs/THREAT_MODEL.md).
+There is no raw legacy HTTP access here. The harness injects the private target,
+applies a reviewed catalog, and bounds and redacts observations.
 """
 
 from __future__ import annotations
@@ -15,28 +9,32 @@ from __future__ import annotations
 from typing import Any
 
 from ..config import Settings
+from ..harness.agent_harness import AgentHarness
+from ..harness.contracts import ToolRequest
 
 
 class PentrAIClient:
-    def __init__(self, settings: Settings):
-        self.base_url = settings.pentrai_server_url.rstrip("/")
+    def __init__(self, settings: Settings, harness: AgentHarness | None = None):
         self.settings = settings
+        self.harness = harness
 
     def call(self, tool: str, **params: Any) -> dict[str, Any]:
-        """Invoke a PentrAI tool route and return its JSON result.
-
-        Implementation notes:
-          * POST to `${base_url}/api/tools/<tool>` (match the server's routing)
-          * enforce a timeout; surface non-2xx as a structured error, not an raise
-          * assert the target host in `params` resolves to the sandbox instance
-            before sending — refuse anything else
-        """
-        raise NotImplementedError("tools.pentrai_client.PentrAIClient.call")
-
-    # A few typed conveniences the stages lean on; all defer to `call`.
+        """Invoke a reviewed friendly tool name without caller-supplied parameters."""
+        if self.harness is None:
+            raise PermissionError("a job-owned policy harness is required")
+        if params:
+            raise ValueError("raw tool parameters are forbidden; use reviewed ToolRequest contracts")
+        result = self.harness.execute(ToolRequest(tool=tool))
+        return {"success": result.status.value == "succeeded", "status": result.status.value,
+                "summary": result.summary, "output": result.redacted_output,
+                "truncated": result.truncated}
 
     def port_scan(self, target: str, **kw: Any) -> dict[str, Any]:
-        raise NotImplementedError("tools.pentrai_client.PentrAIClient.port_scan")
+        if self.harness is None or target != self.harness.target.hostname or kw:
+            raise ValueError("port scan target or parameters are outside the job policy")
+        return self.call("port_scan")
 
     def http_probe(self, url: str, **kw: Any) -> dict[str, Any]:
-        raise NotImplementedError("tools.pentrai_client.PentrAIClient.http_probe")
+        if self.harness is None or url != self.harness.target.base_url or kw:
+            raise ValueError("HTTP probe target or parameters are outside the job policy")
+        return self.call("http_probe")

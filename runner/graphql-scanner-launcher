@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+exec /opt/scanners/graphql-scanner-venv/bin/python /opt/scanners/graphql-scanner/scan.py "$@"

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Volatility 3 writes its cache; keep it on the job-owned tmpfs.
+export XDG_CACHE_HOME=/job/tmp
+exec /usr/local/bin/vol-real "$@"

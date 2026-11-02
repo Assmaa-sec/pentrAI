@@ -1,0 +1,3 @@
+#!/bin/sh
+cd /opt/zaproxy || exit 1
+exec ./zap.sh -Xmx512m -silent "$@"

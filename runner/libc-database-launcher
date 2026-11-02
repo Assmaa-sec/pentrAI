@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+command_name=${1:-}
+case "$command_name" in
+  find|dump|identify)
+    shift
+    cd /opt/libc-database
+    exec "./$command_name" "$@"
+    ;;
+  *)
+    echo 'usage: libc-database {find|dump|identify} [arguments...]' >&2
+    exit 2
+    ;;
+esac

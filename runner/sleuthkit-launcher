@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+utility=${1:-}
+case "$utility" in
+  fls|icat|istat|mmls|fsstat|img_stat|blkls|ils|tsk_recover)
+    shift
+    exec "$utility" "$@"
+    ;;
+  *)
+    echo 'usage: sleuthkit {fls|icat|istat|mmls|fsstat|img_stat|blkls|ils|tsk_recover} [arguments...]' >&2
+    exit 2
+    ;;
+esac

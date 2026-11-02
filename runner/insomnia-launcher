@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+export PKG_NATIVE_CACHE_PATH=/opt/inso/native-cache
+exec /opt/inso/inso "$@"
