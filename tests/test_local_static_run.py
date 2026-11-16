@@ -9,6 +9,7 @@ import uuid
 import zipfile
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
@@ -297,6 +298,94 @@ class LocalStaticRunTests(unittest.TestCase):
         self.assertEqual(ScanState.FAILED, self.session.get(Scan, self.scan_id).state)
         self.assertFalse((self.root / "jobs" / self.scan_id).exists())
         self.assertIsNone(self.session.scalar(select(ScanReport)))
+
+    def test_static_analysis_stage_is_committed_before_scanner_runs(self):
+        from control_plane.models import ScanEvent
+        outer = self
+
+        class ObservingScanner(FakeScanner):
+            def scan(self, sbom):
+                with Session(outer.engine) as observer:
+                    scan = observer.get(Scan, outer.scan_id)
+                    outer.assertEqual(ScanState.STATIC, scan.state)
+                    events = observer.scalars(select(ScanEvent).where(ScanEvent.scan_id == scan.id)).all()
+                    outer.assertTrue(any(event.kind == "analysis" for event in events))
+                    outer.assertIsNone(observer.scalar(select(ScanReport)))
+                return super().scan(sbom)
+
+        self.session.get(Scan, self.scan_id).state = ScanState.AUTHORIZED
+        self.session.commit()
+        run_once(self.engine, self.org_id, self.scan_id, self.key,
+                 self.store, ObservingScanner(), self.root / "jobs")
+        self.session.expire_all()
+        self.assertEqual(ScanState.COMPLETED, self.session.get(Scan, self.scan_id).state)
+
+    def test_reaped_static_job_cannot_resume_and_publish_a_report(self):
+        outer = self
+
+        class ReapedScanner(FakeScanner):
+            def scan(self, sbom):
+                with Session(outer.engine) as observer:
+                    current = observer.get(Scan, outer.scan_id)
+                    current.updated_at = utcnow() - timedelta(minutes=11)
+                    observer.commit()
+                outer.assertEqual(1, reap_stale_scans(outer.engine))
+                return super().scan(sbom)
+
+        self.session.get(Scan, self.scan_id).state = ScanState.AUTHORIZED
+        self.session.commit()
+        with self.assertRaises((LocalStaticRunRejected, ValueError)):
+            run_once(self.engine, self.org_id, self.scan_id, self.key,
+                     self.store, ReapedScanner(), self.root / "jobs")
+        self.session.expire_all()
+        self.assertEqual(ScanState.FAILED, self.session.get(Scan, self.scan_id).state)
+        self.assertIsNone(self.session.scalar(select(ScanReport)))
+        self.assertEqual([], self.session.scalars(select(ScanFinding)).all())
+
+    def test_revoked_grant_cannot_publish_after_static_progress_commit(self):
+        outer = self
+
+        class RevokedScanner(FakeScanner):
+            def scan(self, sbom):
+                with Session(outer.engine) as observer:
+                    for grant in observer.scalars(select(ScanGrant).where(ScanGrant.scan_id == outer.scan_id)):
+                        grant.revoked_at = utcnow()
+                    observer.commit()
+                return super().scan(sbom)
+
+        self.session.get(Scan, self.scan_id).state = ScanState.AUTHORIZED
+        self.session.commit()
+        with self.assertRaises(ValueError):
+            run_once(self.engine, self.org_id, self.scan_id, self.key,
+                     self.store, RevokedScanner(), self.root / "jobs")
+        self.session.expire_all()
+        self.assertEqual(ScanState.FAILED, self.session.get(Scan, self.scan_id).state)
+        self.assertIsNone(self.session.scalar(select(ScanReport)))
+
+    def test_reaped_job_cannot_publish_after_report_rendering(self):
+        from static_worker.worker import run_static_job
+
+        def render_then_reap(*args, **kwargs):
+            result = run_static_job(*args, **kwargs)
+            with Session(self.engine) as observer:
+                current = observer.get(Scan, self.scan_id)
+                self.assertEqual(ScanState.REPORTING, current.state)
+                current.updated_at = utcnow() - timedelta(minutes=11)
+                observer.commit()
+            self.assertEqual(1, reap_stale_scans(self.engine, self.root / "jobs"))
+            return result
+
+        self.session.get(Scan, self.scan_id).state = ScanState.AUTHORIZED
+        self.session.commit()
+        with patch("control_plane.local_static_run.run_static_job", side_effect=render_then_reap):
+            with self.assertRaises(LocalStaticRunRejected):
+                run_once(self.engine, self.org_id, self.scan_id, self.key,
+                         self.store, FakeScanner(), self.root / "jobs")
+        self.session.expire_all()
+        self.assertEqual(ScanState.FAILED, self.session.get(Scan, self.scan_id).state)
+        self.assertIsNone(self.session.scalar(select(ScanReport)))
+        self.assertEqual([], self.session.scalars(select(ScanFinding)).all())
+        self.assertFalse((self.root / "jobs" / self.scan_id).exists())
 
     @unittest.skipUnless(
         Path(".tmp/osv-scanner.exe").exists() and Path(".tmp/osvdb/osv-scalibr/PyPI/all.zip").exists(),

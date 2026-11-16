@@ -30,10 +30,13 @@ def run_local_static_scan(
     store: ObjectStore,
     scanner: DependencyScanner,
     workspace_root: Path,
+    *, commit_progress: bool = False,
 ) -> ScanReport:
     """Run one queued scan in a disposable local workspace, staging DB changes.
 
-    The caller commits the transaction after return. Production workers require
+    The caller commits results after return. The local process adapter may opt in
+    to durable phase commits; its failure handler must compensate those states.
+    Production workers require
     a separate isolation boundary and durable lease before using this adapter.
     """
     scan = session.scalar(
@@ -56,6 +59,22 @@ def run_local_static_scan(
         raise LocalStaticRunRejected("source artifact binding changed")
     if session.scalar(select(ScanReport).where(ScanReport.scan_id == scan_id)) is not None:
         raise LocalStaticRunRejected("scan already has a report")
+    artifact_id, source_digest = scan.source_artifact_id, scan.source_digest
+
+    def resume(expected_state: ScanState) -> Scan:
+        # Phase commits release the job lock. Another worker may have reaped the
+        # job or an administrator may have revoked its grant in the meantime.
+        session.expire_all()
+        current = session.scalar(select(Scan).where(
+            Scan.id == scan_id, Scan.organization_id == organization_id,
+        ).with_for_update())
+        if (current is None or current.state is not expected_state
+                or current.execution_backend != "local_static"
+                or current.source_artifact_id != artifact_id
+                or current.source_digest != source_digest):
+            raise LocalStaticRunRejected("static scan is no longer executable")
+        verify_grant(session, token, signing_key, source_digest)
+        return current
 
     root = workspace_root.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -78,13 +97,32 @@ def run_local_static_scan(
             raise LocalStaticRunRejected("source bytes differ from finalized digest")
         scan.state = ScanState.INTAKE
         append_visible_event(session, scan_id, organization_id, "intake", "Source archive verified")
+        if commit_progress:
+            session.commit()
+
+        def progress(stage: str) -> None:
+            nonlocal scan
+            scan = resume(ScanState.INTAKE if stage == "analysis" else ScanState.STATIC)
+            if stage == "report":
+                append_visible_event(session, scan_id, organization_id, "scanner", "Dependency analysis completed")
+            scan.state = ScanState.STATIC if stage == "analysis" else ScanState.REPORTING
+            append_visible_event(session, scan_id, organization_id,
+                                 "analysis" if stage == "analysis" else "report",
+                                 "Analyzing the uploaded source" if stage == "analysis"
+                                 else "Preparing your assessment report")
+            session.commit()
+
         result = run_static_job(
             StaticJob(archive, job_dir, True, scan.scope_note or f"scope sha256 {scan.scope_digest}",
                       profile=scan.profile),
             scanner,
+            on_progress=progress if commit_progress else None,
         )
-        scan.state = ScanState.STATIC
-        append_visible_event(session, scan_id, organization_id, "scanner", "Dependency analysis completed")
+        if commit_progress:
+            scan = resume(ScanState.REPORTING)
+        else:
+            scan.state = ScanState.STATIC
+            append_visible_event(session, scan_id, organization_id, "scanner", "Dependency analysis completed")
         markdown = result.report_markdown
         if len(markdown.encode("utf-8")) > 2 * 1024 * 1024:
             raise LocalStaticRunRejected("report exceeds size limit")
@@ -120,4 +158,8 @@ def run_local_static_scan(
         session.flush()
         return report
     finally:
-        shutil.rmtree(job_dir)
+        try:
+            shutil.rmtree(job_dir)
+        except FileNotFoundError:
+            # The stale-job reaper may already have removed this workspace.
+            pass

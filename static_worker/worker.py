@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
 
 from .intake import IntakeLimits, SourceInventory, extract_archive, inspect_archive
 from .report import render_static_report
@@ -41,12 +41,15 @@ class StaticResult:
     report_markdown: str
 
 
-def run_static_job(job: StaticJob, scanner: DependencyScanner, limits: IntakeLimits | None = None) -> StaticResult:
+def run_static_job(job: StaticJob, scanner: DependencyScanner, limits: IntakeLimits | None = None,
+                   *, on_progress: Callable[[str], None] | None = None) -> StaticResult:
     if not job.authorized:
         raise PermissionError("source authorization is required")
     limits = limits or IntakeLimits()
     inventory = inspect_archive(job.archive_path, limits)
     source = extract_archive(job.archive_path, job.workspace, limits)
+    if on_progress:
+        on_progress("analysis")
     sbom = build_sbom(source, inventory)
     findings = normalize_osv_results(
         scanner.scan(sbom), sbom,
@@ -58,6 +61,8 @@ def run_static_job(job: StaticJob, scanner: DependencyScanner, limits: IntakeLim
     if job.profile != "quick":
         findings.extend(analyze_python_source(source, inventory,
                                                max_findings=30 if job.profile == "standard" else 100))
+    if on_progress:
+        on_progress("report")
     report = render_static_report(findings, scope=job.scope, unresolved=sbom.unresolved,
                                   profile=job.profile)
     return StaticResult(inventory, sbom, tuple(findings), report)

@@ -24,6 +24,7 @@ from .runner_results import RunnerResultRejected, accept_runner_result
 from .runner_readiness import runner_available
 from .local_hexstrike_readiness import local_worker_available
 from .assessment_health import observe_local_health
+from .assessment_progress import progress_snapshot, public_event_summary
 from .settings import Settings
 from .organization_authorization import (OrganizationAuthorizationRejected,
                                          active_authorization, approve_authorization,
@@ -652,7 +653,10 @@ def create_app(settings: Settings) -> FastAPI:
                     .order_by(ScanEvent.sequence)
                     .limit(100)
                 ).all()
-                batch = [(event.sequence, {"kind": event.kind, "summary": event.summary,
+                batch = [(event.sequence, {"kind": event.kind,
+                                          "summary": public_event_summary(event.kind, event.summary),
+                                          "created_at": (event.created_at.replace(tzinfo=timezone.utc)
+                                                         if event.created_at.tzinfo is None else event.created_at).isoformat(),
                                           "sequence": event.sequence}) for event in events]
                 session.rollback()
                 for sequence, payload in batch:
@@ -688,7 +692,7 @@ def create_app(settings: Settings) -> FastAPI:
         scan_id: str,
         actor: CurrentActor = Depends(current_actor),
         session: Session = Depends(get_session),
-    ) -> dict[str, str | bool | int | None]:
+    ) -> dict[str, object]:
         scan = require_scan_reader(session, organization_id, scan_id, actor.user_id)
         reservation = session.get(ScanCreditReservation, scan.id)
         return {
@@ -702,6 +706,9 @@ def create_app(settings: Settings) -> FastAPI:
             "state": scan.state.value, "dynamic_authorized": scan.dynamic_authorized,
             "scope_note": scan.scope_note,
             "target_url": scan.target_url,
+            "created_at": (scan.created_at.replace(tzinfo=timezone.utc)
+                           if scan.created_at.tzinfo is None else scan.created_at).isoformat(),
+            "progress": progress_snapshot(session, scan),
         }
 
     @app.post("/v1/organizations/{organization_id}/scans/{scan_id}/cancel")

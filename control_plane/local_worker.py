@@ -30,7 +30,7 @@ def reap_stale_scans(engine, workspace_root: Path | None = None,
     cutoff = datetime.now(timezone.utc) - older_than
     with Session(engine) as session:
         scans = session.scalars(select(Scan).where(
-            Scan.state == ScanState.QUEUED,
+            Scan.state.in_((ScanState.QUEUED, ScanState.INTAKE, ScanState.STATIC, ScanState.REPORTING)),
             Scan.execution_backend == "local_static",
             Scan.dynamic_authorized.is_(False),
             Scan.updated_at < cutoff,
@@ -96,6 +96,7 @@ def run_once(
             report = run_local_static_scan(
                 session, organization_id, scan_id, token, signing_key,
                 store, scanner, workspace_root,
+                commit_progress=True,
             )
             report_id = report.id
             for grant in session.scalars(select(ScanGrant).where(
@@ -109,7 +110,9 @@ def run_once(
             scan = session.scalar(select(Scan).where(
                 Scan.id == scan_id, Scan.organization_id == organization_id,
             ).with_for_update())
-            if scan is not None and scan.state is ScanState.QUEUED:
+            if scan is not None and scan.state in {
+                ScanState.QUEUED, ScanState.INTAKE, ScanState.STATIC, ScanState.REPORTING,
+            }:
                 scan.state = ScanState.CLEANUP
                 scan.state = ScanState.FAILED
                 for grant in session.scalars(select(ScanGrant).where(

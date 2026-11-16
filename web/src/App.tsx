@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { api, followEvents, scanPath, uploadZip, type Finding, type Project, type Report, type Scan, type ScanEvent, type ScanSummary } from './api'
+import type { LiveStatus } from './api'
+import AssessmentProgress, { activityTime } from './AssessmentProgress'
+import { assessmentLabel } from './progressModel'
 
 type Connection = { organizationId: string; scanId: string; token: string }
 type WorkspaceView = 'overview' | 'projects' | 'assessments' | 'findings' | 'administration'
@@ -64,6 +67,10 @@ export default function App() {
   const [findings, setFindings] = useState<Finding[]>([])
   const [report, setReport] = useState<Report | null>(null)
   const [events, setEvents] = useState<ScanEvent[]>([])
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>('connecting')
+  const [snapshotFailed, setSnapshotFailed] = useState(false)
+  const [refreshingAssessment, setRefreshingAssessment] = useState(false)
+  const refreshAssessment = useRef<() => Promise<void>>(async () => undefined)
   const [error, setError] = useState('')
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
@@ -79,9 +86,11 @@ export default function App() {
   const projectRequest = useRef<{ signature: string; key: string } | null>(null)
   const cancelRequest = useRef<{ scanId: string; key: string } | null>(null)
   const localSessionRequested = useRef(false)
+  const assessmentRequest = useRef(0)
   const webTargetReady = !targetUrl.trim() || !!(webProof?.verified && webProof.targetUrl === targetUrl.trim() && webProof.projectId === projectId && webProof.organizationId === organizationId.trim())
 
   function disconnectWorkspace() {
+    assessmentRequest.current++
     setAccessRole('')
     setAccessUserId('')
     setProjects([])
@@ -105,17 +114,24 @@ export default function App() {
   }
 
   useEffect(() => {
-    void fetch('/v1/capabilities', { cache: 'no-store' })
+    const controller = new AbortController()
+    const refresh = () => void fetch('/v1/capabilities', { cache: 'no-store',
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
       .then(response => response.ok ? response.json() as Promise<{ source_scans_available: boolean; web_scans_available: boolean; source_mode: string }> : null)
       .then(value => {
+        if (controller.signal.aborted) return
         setWebScansAvailable(value?.web_scans_available === true)
         setSourceScansAvailable(value?.source_scans_available === true)
         setSourceMode(value?.source_mode || 'hexstrike')
       })
       .catch(() => {
+        if (controller.signal.aborted) return
         setWebScansAvailable(false)
         setSourceScansAvailable(false)
       })
+    refresh()
+    const timer = setInterval(refresh, 15000)
+    return () => { controller.abort(); clearInterval(timer) }
   }, [])
 
   useEffect(() => {
@@ -141,28 +157,66 @@ export default function App() {
     if (!connection) return
     const controller = new AbortController()
     const path = scanPath(connection.organizationId, connection.scanId)
+    let pending: Promise<void> | undefined
+    let reportLoaded = false
+    setSnapshotFailed(false)
+    setLiveStatus('connecting')
+    async function refresh() {
+      if (pending) return pending
+      setRefreshingAssessment(true)
+      pending = (async () => {
+        try {
+          const current = await api<Scan>(path, connection!.token, { signal: controller.signal })
+          if (controller.signal.aborted) return
+          setScan(current)
+          setSnapshotFailed(false)
+          setOrganizationScans(items => items.map(item => item.id === current.id && item.state !== current.state
+            ? { ...item, state: current.state } : item))
+          const ready = current.progress?.report_ready || current.state === 'completed'
+          const settled = ready || current.state === 'failed' || current.state === 'cancelled'
+          await Promise.allSettled([
+            ...(settled ? [api<Finding[]>(`${path}/findings`, connection!.token, { signal: controller.signal })
+              .then(value => { if (!controller.signal.aborted) setFindings(value) })] : []),
+            ...(ready && !reportLoaded ? [api<Report>(`${path}/report`, connection!.token, { signal: controller.signal })
+              .then(value => { if (!controller.signal.aborted) { setReport(value); reportLoaded = true } })
+              .catch(() => { if (!controller.signal.aborted) setError('Your report could not be loaded. We will try again on the next status check.') })] : []),
+          ])
+        } catch {
+          if (!controller.signal.aborted) setSnapshotFailed(true)
+        } finally {
+          pending = undefined
+          if (!controller.signal.aborted) setRefreshingAssessment(false)
+        }
+      })()
+      return pending
+    }
+    refreshAssessment.current = refresh
     void followEvents(path, connection.token, event => {
+      if (controller.signal.aborted) return
       setEvents(current => current.some(item => item.sequence === event.sequence)
         ? current : [...current, event].slice(-100))
-      void api<Scan>(path, connection.token).then(setScan).catch(() => undefined)
-      if (event.kind === 'report' || event.kind === 'status') {
-        void api<Finding[]>(`${path}/findings`, connection.token).then(setFindings).catch(() => undefined)
-      }
-      if (event.kind === 'report') {
-        void api<Report>(`${path}/report`, connection.token).then(setReport).catch(() => undefined)
-      }
-    }, controller.signal)
-    return () => controller.abort()
+      void refresh()
+    }, controller.signal, status => { if (!controller.signal.aborted) setLiveStatus(status) })
+    void refresh()
+    const timer = setInterval(() => void refresh(), 10000)
+    return () => {
+      controller.abort()
+      clearInterval(timer)
+      refreshAssessment.current = async () => undefined
+    }
   }, [connection])
 
   async function openScan(id: string) {
+    const request = ++assessmentRequest.current
     const next = { organizationId: organizationId.trim(), scanId: id.trim(), token: token.trim() }
     const path = scanPath(next.organizationId, next.scanId)
-    const current = await api<Scan>(path, next.token)
-    const currentFindings = await api<Finding[]>(`${path}/findings`, next.token)
+    const [current, currentFindings] = await Promise.all([
+      api<Scan>(path, next.token), api<Finding[]>(`${path}/findings`, next.token),
+    ])
     const currentReport = current.state === 'completed'
       ? await api<Report>(`${path}/report`, next.token)
       : null
+    if (request !== assessmentRequest.current) return
     setScan(current)
     setProjectId(current.project_id)
     setFindings(currentFindings)
@@ -420,6 +474,7 @@ export default function App() {
 
   async function cancelScan() {
     if (!connection) return
+    if (!window.confirm('Cancel this assessment? Work already performed may still use assessment credits.')) return
     setBusy(true)
     setError('')
     try {
@@ -496,7 +551,7 @@ export default function App() {
   )
   const isConnected = Boolean(accessRole)
   const canAssess = accessRole === 'owner' || accessRole === 'security_engineer'
-  const statusLabel = scan ? ({ authorized: 'Preparing', queued: 'Queued', running: 'Analyzing', cleanup: 'Finishing', completed: 'Completed', failed: 'Failed', cancelled: 'Cancelled' } as Record<string, string>)[scan.state] || scan.state : ''
+  const statusLabel = scan ? assessmentLabel(scan.state) : ''
   const viewLabel = { overview: 'Overview', projects: 'Projects', assessments: 'Assessments', findings: 'Findings', administration: 'Administration' }[view]
   const viewDescription = { overview: 'Your security work across every project.', projects: 'Select a project or create a new one.', assessments: 'Track assessments and open their results.', findings: 'Review detected issues across your projects.', administration: 'Manage access to this organization.' }[view]
 
@@ -533,6 +588,10 @@ export default function App() {
 
         {view === 'projects' && <section className="projects-card" aria-label="Projects"><div className="section-title-row"><div><p className="eyebrow">SOURCE ORGANIZATION</p><h2>Your projects</h2></div><button className="outline-button" type="button" disabled={!organizationId.trim() || !token.trim()} onClick={() => void refreshProjects()}>Refresh</button></div>{projects.length ? <div className="project-list">{projects.map(item => <button key={item.id} type="button" className={item.id === projectId ? 'selected' : ''} onClick={() => void selectProject(item.id)}><strong>{item.name}</strong><span>{item.id === projectId ? 'Current project' : 'Open project'} →</span></button>)}</div> : <p className="empty">{isConnected ? 'No projects in this workspace.' : 'Connect your workspace to see projects.'}</p>}{canAssess && <div className="project-create"><label>New project name<input value={projectName} onChange={e => setProjectName(e.target.value)} maxLength={200} placeholder="Name your project" /></label><button className="primary-button" disabled={busy || !projectName.trim() || !organizationId.trim() || !token.trim()} type="button" onClick={() => void createProject()}>Create project</button></div>}</section>}
 
+        {view === 'assessments' && scan && <AssessmentProgress scan={scan} live={liveStatus}
+          snapshotFailed={snapshotFailed} refreshing={refreshingAssessment}
+          onRefresh={() => void refreshAssessment.current()} />}
+
         {view === 'administration' && accessRole === 'owner' && <section className="members-card authorization-card" aria-label="Assessment authorization">
           <div className="section-title-row"><div><p className="eyebrow">ASSESSMENT AUTHORITY</p><h2>Organization authorization</h2><p>Record the scope your organization may assess. Security engineers can start scans within this approval.</p></div></div>
           {assessmentAuthorization.active && <div className="authorization-active"><span className="status-pill status-completed"><i />Active authorization</span><strong>Approved through {new Date(assessmentAuthorization.expires_at || '').toLocaleDateString()}</strong><p>{assessmentAuthorization.scope_statement}</p></div>}
@@ -549,7 +608,7 @@ export default function App() {
 
         {view === 'administration' && accessRole === 'owner' && <section className="audit-card" aria-label="Recent organization activity"><div className="section-title-row"><div><p className="eyebrow">AUDIT TRAIL</p><h2>Recent activity</h2></div></div><div className="audit-list">{auditEntries.length ? auditEntries.map(entry => <div key={entry.id}><strong>{({ 'member.role_change': 'Member role changed', 'member.remove': 'Member removed', 'project.create': 'Project created' } as Record<string, string>)[entry.action] || entry.action.replaceAll('.', ' ')}</strong><time>{new Date(entry.created_at).toLocaleString()}</time></div>) : <p className="empty">No recent activity.</p>}</div></section>}
 
-        {view === 'assessments' && scan && <section className="summary-card" id="assessment"><div className="summary-top"><div><p className="eyebrow">CURRENT ASSESSMENT</p><h2>{scan.target_url ? 'Website assessment' : 'Source review'} <span>#{scan.id.slice(0, 8)}</span></h2><p>{projects.find(item => item.id === scan.project_id)?.name || 'Project assessment'}</p></div><span className={`status-pill status-${scan.state}`}><i />{statusLabel}</span></div><div className="summary-stats"><div><small>DETECTED ISSUES</small><strong>{findings.length}</strong><span>Require review and validation</span></div><div><small>ANALYSIS</small><strong>{scan.target_url ? 'Website and source scope' : 'Static source review'}</strong><span>See report for coverage and limitations</span></div><div><small>REPORT</small><strong>{report ? 'Ready' : 'Pending'}</strong><span>{report ? 'Available in three formats' : 'Available when analysis finishes'}</span></div></div><div className="summary-bottom"><p><strong>Declared scope:</strong> {scan.scope_note || 'Recorded with this assessment'}</p>{scan.target_url && <p><strong>Website:</strong> {scan.target_url}</p>}{scan.reserved_credits > 0 && <p><strong>AI model:</strong> {modelOptions.find(option => option.id === scan.model_id)?.label || scan.model_id} · {scan.charged_credits.toLocaleString()} credits used from {scan.reserved_credits.toLocaleString()} reserved</p>}{(scan.state === 'authorized' || scan.state === 'queued') && <button className="text-button danger" disabled={busy} type="button" onClick={() => void cancelScan()}>Cancel assessment</button>}{(scan.state === 'failed' || scan.state === 'cancelled') && <button className="text-button" disabled={busy} type="button" onClick={() => void retryScan()}>Retry assessment →</button>}</div></section>}
+        {view === 'assessments' && scan && <section className="summary-card" id="assessment"><div className="summary-top"><div><p className="eyebrow">CURRENT ASSESSMENT</p><h2>{scan.target_url ? 'Website assessment' : 'Source review'} <span>#{scan.id.slice(0, 8)}</span></h2><p>{projects.find(item => item.id === scan.project_id)?.name || 'Project assessment'}</p></div><span className={`status-pill status-${scan.state}`}><i />{statusLabel}</span></div><div className="summary-stats"><div><small>DETECTED ISSUES</small><strong>{scan.state === 'completed' || findings.length > 0 ? findings.length : '—'}</strong><span>Require review and validation</span></div><div><small>ANALYSIS</small><strong>{scan.target_url ? 'Website and source scope' : 'Source assessment'}</strong><span>See report for coverage and limitations</span></div><div><small>REPORT</small><strong>{report ? 'Ready' : ['failed', 'cancelled'].includes(scan.state) ? 'Not available' : 'In preparation'}</strong><span>{report ? 'Available in three formats' : 'Available when analysis finishes'}</span></div></div><div className="summary-bottom"><p><strong>Declared scope:</strong> {scan.scope_note || 'Recorded with this assessment'}</p>{scan.target_url && <p><strong>Website:</strong> {scan.target_url}</p>}{scan.reserved_credits > 0 && <p><strong>AI model:</strong> {modelOptions.find(option => option.id === scan.model_id)?.label || scan.model_id} · {scan.charged_credits.toLocaleString()} credits used from {scan.reserved_credits.toLocaleString()} reserved</p>}{canAssess && (scan.state === 'authorized' || scan.state === 'queued') && <button className="text-button danger" disabled={busy} type="button" onClick={() => void cancelScan()}>Cancel assessment</button>}{canAssess && (scan.state === 'failed' || scan.state === 'cancelled') && <button className="text-button" disabled={busy} type="button" onClick={() => void retryScan()}>Retry assessment →</button>}</div></section>}
 
         {view === 'assessments' && showCreate && <section className="create-layout" id="new-assessment">
           <form className="form-card" onSubmit={startScan}>
@@ -571,8 +630,8 @@ export default function App() {
                 ] as const).map(([value, title, description]) => <label key={value} className={assessmentProfile === value ? 'profile-selected' : ''}><input type="radio" name="assessment-depth" value={value} checked={assessmentProfile === value} onChange={() => setAssessmentProfile(value)} /><strong>{title}</strong><small>{description}</small></label>)}
               </div>
               <h3><span>04</span> Assessment scope</h3>
-              <label>What should this assessment cover?<input data-fd-id="field-scope" required value={scopeNote} maxLength={2000} onChange={e => setScopeNote(e.target.value)} placeholder="For example, the application source and its public website" /></label>
-              <p className="coverage-note"><strong>Current coverage:</strong> {sourceMode === 'local_static' ? 'Exact Python package pins and selected Python source patterns.' : 'Model-selected HexStrike tools within the approved scope and work budget.'} Review the report for coverage and limitations.</p>
+              <label>What should this assessment cover?<input data-fd-id="field-scope" required value={scopeNote} maxLength={2000} onChange={e => setScopeNote(e.target.value)} placeholder={webScansAvailable ? 'For example, the application source and its public website' : 'For example, the uploaded application source and its dependencies'} /></label>
+              <p className="coverage-note"><strong>Current coverage:</strong> {sourceMode === 'local_static' ? 'Exact Python package pins and selected Python source patterns.' : 'Automated source analysis within the approved scope and assessment limits.'} Review the report for coverage and limitations.</p>
               {sourceMode === 'local_static' ? <label className="attestation"><input required type="checkbox" checked={authorized} onChange={e => setAuthorized(e.target.checked)} /><span>I own or have permission to assess the submitted application and website.</span></label> : !assessmentAuthorization.active ? <p className="coverage-note">An organization owner must approve assessment scope in Administration before scans can start.</p> : null}
               <button className="primary-button submit-button" disabled={busy || !sourceScansAvailable || (sourceMode === 'local_static' ? !authorized : !modelId || !assessmentAuthorization.active || (sourceFile !== null && !assessmentAuthorization.source_allowed) || (!!targetUrl.trim() && !assessmentAuthorization.url_allowed)) || (!sourceFile && !targetUrl.trim()) || !webTargetReady || !organizationId.trim() || !projectId.trim() || !token.trim()} type="submit">{busy ? 'Starting assessment...' : 'Start assessment'}</button>
             </div>
@@ -591,7 +650,7 @@ export default function App() {
 
         {view === 'findings' && <section className="organization-findings"><div className="section-title-row"><div><p className="eyebrow">DETECTED ISSUES</p><h2>Findings across projects</h2><p>Scanner detections need review and validation.</p></div><button className="text-button" type="button" onClick={() => void refreshOrganizationData(organizationId, token)}>Refresh →</button></div><div className="assessment-filters"><input aria-label="Search all findings" value={findingQuery} onChange={e => setFindingQuery(e.target.value)} placeholder="Search advisory, component, or project" /><select aria-label="Filter all findings by source" value={findingSource} onChange={e => setFindingSource(e.target.value)}><option value="all">All sources</option><option value="sca">Dependencies</option><option value="sast">Code checks</option><option value="hexstrike">HexStrike</option></select></div><div className="organization-finding-list">{visibleOrganizationFindings.length ? visibleOrganizationFindings.map(item => <button key={item.id} type="button" onClick={() => void openScan(item.scan_id).catch(cause => setError(String(cause)))}><span><strong>{item.title || item.advisory_id}</strong><small>{item.project_name} · {item.dependency || 'Python source'} · {item.source_manifest}</small></span><span className="detected-pill">{item.state}</span><span>View assessment →</span></button>) : <div className="empty-activity"><h3>{organizationFindings.length ? 'No findings match your filters' : 'No findings to review'}</h3><p>{organizationFindings.length ? 'Try a different search or source.' : 'Findings appear after a supported assessment completes. An empty list does not establish that source is secure.'}</p></div>}</div></section>}
 
-        {view === 'assessments' && scan && <><section className="results-section" id="findings"><div className="section-title-row"><div><p className="eyebrow">ANALYSIS RESULTS</p><h2>Detected findings <span className="count">{findings.length}</span></h2><p>These results identify issues for review. They do not establish exploitability.</p></div></div><div className="results-card"><div className="results-toolbar"><label className="search-field"><span aria-hidden="true">⌕</span><input aria-label="Search findings" value={findingQuery} onChange={e => setFindingQuery(e.target.value)} placeholder="Search advisory or component" /></label><select aria-label="Filter findings by source" value={findingSource} onChange={e => setFindingSource(e.target.value)}><option value="all">All sources</option><option value="sca">Dependencies</option><option value="sast">Code checks</option><option value="hexstrike">HexStrike</option></select></div>{visibleFindings.length ? <div className="finding-table"><div className="table-head"><span>FINDING</span><span>COMPONENT</span><span>SOURCE</span><span>STATUS</span></div>{visibleFindings.map(item => <details className="finding-row" key={item.id}><summary><strong>{item.title || item.advisory_id}</strong><span>{item.dependency || (item.source === 'hexstrike' ? 'Application' : 'Python source')}</span><span>{item.source === 'sca' ? 'Dependency' : item.source === 'hexstrike' ? 'HexStrike' : 'Code check'}</span><span className="detected-pill">{item.state}</span></summary><div className="finding-detail">{item.explanation && <p>{item.explanation}</p>}{item.severity && <span>Severity: {item.severity}</span>}{item.source_manifest && <span>Source: {item.source_manifest}</span>}<span>Scanner: {item.scanner_version}</span><span>Database: {item.database_version}</span></div></details>)}</div> : <p className="empty">{findings.length ? 'No findings match your filters.' : 'Findings will appear when analysis is complete. Review the report for coverage and limitations.'}</p>}</div></section><div className="lower-grid"><section className="detail-card" id="activity"><div className="section-title-row"><div><p className="eyebrow">ASSESSMENT HISTORY</p><h2>Activity</h2></div><span className="heading-glyph">◷</span></div>{events.length ? <ol className="activity-list">{events.map(item => <li key={item.sequence}><span className="activity-node" /><div><strong>{priorEventLabels[item.summary] || item.summary}</strong><small>Step {String(item.sequence).padStart(2, '0')}</small></div></li>)}</ol> : <p className="empty">Updates will appear here as the assessment progresses.</p>}</section><section className="detail-card" id="report"><div className="section-title-row"><div><p className="eyebrow">DELIVERABLE</p><h2>Assessment report</h2></div><span className="heading-glyph">▤</span></div>{report ? <><p className="report-description">The report includes declared scope, detected issues, scanner provenance, and coverage limitations.</p><div className="report-actions"><button type="button" onClick={() => void downloadReport('pdf')}>↓ PDF</button><button type="button" onClick={() => void downloadReport('docx')}>↓ DOCX</button><button type="button" onClick={() => void downloadReport('md')}>↓ Markdown</button></div><button className="text-button preview-toggle" type="button" onClick={() => setShowReportText(value => !value)}>{showReportText ? 'Hide report text' : 'Read report text'} →</button>{showReportText && <pre className="report-text">{report.markdown}</pre>}</> : <p className="empty">Your report will be available when the assessment is complete.</p>}</section></div><section className="question-card"><div><p className="eyebrow">ASSESSMENT ASSISTANT</p><h2>Ask about this assessment</h2><p>Answers use the recorded status, findings, and report availability.</p></div><form className="question" onSubmit={ask}><input aria-label="Question about assessment" value={question} onChange={e => setQuestion(e.target.value)} placeholder="What is the current status?" maxLength={500} /><button className="primary-button" disabled={busy || !question.trim()}>Ask →</button></form>{answer && <p className="answer">{answer}</p>}</section></>}
+        {view === 'assessments' && scan && <><section className="results-section" id="findings"><div className="section-title-row"><div><p className="eyebrow">ANALYSIS RESULTS</p><h2>Detected findings <span className="count">{findings.length}</span></h2><p>These results identify issues for review. They do not establish exploitability.</p></div></div><div className="results-card"><div className="results-toolbar"><label className="search-field"><span aria-hidden="true">⌕</span><input aria-label="Search findings" value={findingQuery} onChange={e => setFindingQuery(e.target.value)} placeholder="Search advisory or component" /></label><select aria-label="Filter findings by source" value={findingSource} onChange={e => setFindingSource(e.target.value)}><option value="all">All sources</option><option value="sca">Dependencies</option><option value="sast">Code checks</option><option value="hexstrike">HexStrike</option></select></div>{visibleFindings.length ? <div className="finding-table"><div className="table-head"><span>FINDING</span><span>COMPONENT</span><span>SOURCE</span><span>STATUS</span></div>{visibleFindings.map(item => <details className="finding-row" key={item.id}><summary><strong>{item.title || item.advisory_id}</strong><span>{item.dependency || (item.source === 'hexstrike' ? 'Application' : 'Python source')}</span><span>{item.source === 'sca' ? 'Dependency' : item.source === 'hexstrike' ? 'HexStrike' : 'Code check'}</span><span className="detected-pill">{item.state}</span></summary><div className="finding-detail">{item.explanation && <p>{item.explanation}</p>}{item.severity && <span>Severity: {item.severity}</span>}{item.source_manifest && <span>Source: {item.source_manifest}</span>}<span>Scanner: {item.scanner_version}</span><span>Database: {item.database_version}</span></div></details>)}</div> : <p className="empty">{findings.length ? 'No findings match your filters.' : scan.state === 'completed' ? 'No findings were recorded within the assessed scope. Review the report for coverage and limitations.' : ['failed', 'cancelled'].includes(scan.state) ? 'This assessment did not produce findings. Review its activity before retrying.' : 'Findings will appear when analysis is complete. Review the report for coverage and limitations.'}</p>}</div></section><div className="lower-grid"><section className="detail-card" id="activity"><div className="section-title-row"><div><p className="eyebrow">ASSESSMENT HISTORY</p><h2>Activity</h2></div><span className="heading-glyph">◷</span></div>{events.length ? <ol className="activity-list">{events.map(item => <li key={item.sequence} className={item.kind === 'warning' ? 'activity-warning' : undefined}><span className="activity-node" /><div><strong>{priorEventLabels[item.summary] || item.summary}</strong><small>{item.created_at ? <time dateTime={item.created_at}>{activityTime(item.created_at)}</time> : 'Recorded activity'}</small></div></li>)}</ol> : <p className="empty">Updates will appear here as the assessment progresses.</p>}</section><section className="detail-card" id="report"><div className="section-title-row"><div><p className="eyebrow">DELIVERABLE</p><h2>Assessment report</h2></div><span className="heading-glyph">▤</span></div>{report ? <><p className="report-description">The report includes declared scope, detected issues, scanner provenance, and coverage limitations.</p><div className="report-actions"><button type="button" onClick={() => void downloadReport('pdf')}>↓ PDF</button><button type="button" onClick={() => void downloadReport('docx')}>↓ DOCX</button><button type="button" onClick={() => void downloadReport('md')}>↓ Markdown</button></div><button className="text-button preview-toggle" type="button" onClick={() => setShowReportText(value => !value)}>{showReportText ? 'Hide report text' : 'Read report text'} →</button>{showReportText && <pre className="report-text">{report.markdown}</pre>}</> : <p className="empty">{scan.state === 'completed' ? 'Your report could not be loaded. Check status to try again.' : ['failed', 'cancelled'].includes(scan.state) ? 'No report is available for this assessment.' : 'Your report will be available when the assessment is complete.'}</p>}</section></div><section className="question-card"><div><p className="eyebrow">ASSESSMENT ASSISTANT</p><h2>Ask about this assessment</h2><p>Answers use the recorded status, findings, and report availability.</p></div><form className="question" onSubmit={ask}><input aria-label="Question about assessment" value={question} onChange={e => setQuestion(e.target.value)} placeholder="What is the current status?" maxLength={500} /><button className="primary-button" disabled={busy || !question.trim()}>Ask →</button></form>{answer && <p className="answer">{answer}</p>}</section></>}
 
       </main>
     </div>
