@@ -126,6 +126,11 @@ def reap_expired_leases(
         elif grant.revoked_at is None:
             grant.revoked_at = now
         lease.cleanup_error = ",".join(errors)[:200] if errors else None
+        if errors and lease.cleanup_attempts == 1:
+            scan = session.get(Scan, lease.scan_id)
+            if scan is not None and scan.execution_backend == "hexstrike_local":
+                append_visible_event(session, scan.id, scan.organization_id, "warning",
+                                     "Assessment cleanup could not finish. Ask your administrator to check Docker access. Cleanup will be retried while the assessment service is running.")
         if not errors:
             lease.cleaned_at = now
             cleaned += 1

@@ -18,6 +18,73 @@ file top to bottom once, then start at [How to build a phase](#how-to-build-a-ph
 
 ## Phase status
 
+### Repeated assessment verification (2026-11-15)
+
+- Reproduced and fixed partial pipe writes, missing late-provider usage after
+  cancellation, and warning suppression after recovery followed by another outage.
+  Already-expired scopes cannot launch a process, and sub-second deadlines retain
+  their actual remaining lifetime.
+- Verified: full suite 167 tests (161 passed, six skipped); five shuffled focused
+  runs passed 125 tests including 100 real subprocess pipe exchanges. TypeScript
+  and Vite production build, compilation, and scoped whitespace checks passed.
+- Limits: actual Linux Docker and provider integration remain pending. The shared
+  Windows venv still has legacy dependency conflicts; no Python packages were
+  changed in this recheck. Existing `requirements.txt` edits were preserved.
+- Evidence and Linux activation commands: `ASSESSMENT_RECHECK.md`.
+
+### Local assessment diagnostics and health (2026-11-15)
+
+- Built: fixed safe failure reasons for configuration/model selection, missing
+  credentials, admission, Docker, source/archive preparation, provider errors,
+  credit/usage limits, deadlines, and result persistence. Existing activity views
+  receive stage events and 30-second wait notices without raw tool/provider data.
+- Health: readiness is published only after dependency checks and refreshed during
+  active work. Per-job heartbeats identify a stalled job even if another service
+  instance is healthy. API event polling uses fresh, short transactions and adds
+  deduplicated warnings for unavailable execution, stalled jobs, missing execution
+  records, long queues, and overdue/failed cleanup. API checks never run tools.
+- Lifecycle: model waits honor cancellation and the existing job deadline;
+  cleanup remains retryable and cannot imply successful completion before it
+  succeeds. Source loading is bounded by the finalized upload size.
+- Operator command: `python -m control_plane.local_hexstrike_worker --check`
+  validates configuration, database tables, artifact write access, and Docker
+  image availability without launching an assessment or contacting the provider.
+  Provider authentication and tool support are verified on the actual call.
+- Verification: full discovery passed 160 tests (six integration tests skipped).
+  The subsequently added preflight regression passed with the startup failure
+  suite (four tests). Compilation and scoped whitespace checks passed. Linux
+  Docker execution remains unverified in this session.
+- Deployment: rebuild `runner/Dockerfile`, then restart API and worker. Updated
+  `sartup.txt` includes the preflight command and diagnostic behavior. No schema
+  migration or UI changes are needed. See `ASSESSMENT_HEALTH.md` for the design.
+- Limits: the Activity feed needs a working API/database; Docker cleanup needs
+  the service/reaper and Docker to be available. The legacy CLI, static-only
+  adapter, and production cluster dispatcher are separate execution paths.
+- Pending manual verification: one owned source ZIP on Linux; confirm provider
+  failure messages, progress events, completion, cancellation, and Docker cleanup.
+
+### Local HexStrike setup failure handling (2026-11-15)
+
+- Changed: failures before a local source assessment is claimed now persist a
+  failed state, a safe visible configuration message, an audit event, and credit
+  release. The polling worker can then select the next authorized assessment.
+- Scope: only authorized `hexstrike_local` scans in the requested organization;
+  cancelled, claimed, and completed assessments retain their existing lifecycle.
+- Regression coverage: missing provider credential through the worker entry
+  point, next-scan eligibility, credit release, idempotency, and state/tenant guards.
+- Verification: compilation, scoped whitespace check, and both new regression
+  tests passed. Full unittest discovery ran 144 tests: 136 passed, six skipped,
+  two inventory tests errored while reading `pentrai_server.py` on Windows
+  (`OSError: Invalid argument`). No Linux Docker run was performed.
+- Environment: installing declared product test dependencies in the existing
+  Windows venv exposed conflicts with its legacy mitmproxy/pyOpenSSL packages;
+  use a separate product venv as described in `sartup.txt`.
+- Pending manual verification: on Linux, confirm a missing model credential shows
+  a failed assessment, then configure the provider and retry an owned source ZIP.
+- Workflow limitation: Grill Me and Ponytail were not available in the installed
+  skill locations or tool catalog. The maintainer explicitly approved the failure
+  behavior before implementation.
+
 ### Deployable pilot workstreams
 
 The approved pilot follows the [delivery index](superpowers/plans/2026-08-30-deployable-pilot-delivery-index.md)

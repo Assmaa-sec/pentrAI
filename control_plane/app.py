@@ -23,6 +23,7 @@ from .report_exports import render_docx, render_pdf
 from .runner_results import RunnerResultRejected, accept_runner_result
 from .runner_readiness import runner_available
 from .local_hexstrike_readiness import local_worker_available
+from .assessment_health import observe_local_health
 from .settings import Settings
 from .organization_authorization import (OrganizationAuthorizationRejected,
                                          active_authorization, approve_authorization,
@@ -584,7 +585,7 @@ def create_app(settings: Settings) -> FastAPI:
         if (not settings.local_static_enabled
                 and not (settings.local_hexstrike_enabled and local_worker_available(session))
                 and (not settings.native_runner_ready or not runner_available(session))):
-            raise HTTPException(status_code=503, detail="assessment execution is not available")
+            raise HTTPException(status_code=503, detail="Assessment execution is not available. Ask your administrator to start the assessment service and check Docker, database access, and model API configuration.")
         execution_backend = ("local_static" if settings.local_static_enabled else
                              "hexstrike_local" if settings.local_hexstrike_enabled else "hexstrike")
         try:
@@ -629,7 +630,18 @@ def create_app(settings: Settings) -> FastAPI:
         def stream():
             nonlocal cursor
             last_heartbeat = time.monotonic()
+            last_health_check = None
             while True:
+                # A long-lived read transaction can hide later events and block
+                # SQLite writers. Each poll must observe a fresh transaction.
+                session.rollback()
+                if last_health_check is None or time.monotonic() - last_health_check >= 15:
+                    current = session.scalar(select(Scan).where(
+                        Scan.id == scan_id, Scan.organization_id == organization_id))
+                    if current is not None:
+                        observe_local_health(session, current)
+                    session.commit()
+                    last_health_check = time.monotonic()
                 events = session.scalars(
                     select(ScanEvent)
                     .where(
@@ -640,10 +652,12 @@ def create_app(settings: Settings) -> FastAPI:
                     .order_by(ScanEvent.sequence)
                     .limit(100)
                 ).all()
-                for event in events:
-                    cursor = event.sequence
-                    payload = {"kind": event.kind, "summary": event.summary, "sequence": event.sequence}
-                    yield f"id: {event.sequence}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                batch = [(event.sequence, {"kind": event.kind, "summary": event.summary,
+                                          "sequence": event.sequence}) for event in events]
+                session.rollback()
+                for sequence, payload in batch:
+                    cursor = sequence
+                    yield f"id: {sequence}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
                 if not follow:
                     return
                 if time.monotonic() - last_heartbeat >= 15:

@@ -15,6 +15,16 @@ from execution_manager.stage_source import stage_source
 from pentrai_pipeline.agents.llm import LLMToolTurn
 
 
+_stage = "runner"
+
+
+def status(stage: str) -> None:
+    global _stage
+    _stage = stage
+    sys.stdout.buffer.write(b"PENTRAI_STATUS " + stage.encode("ascii") + b"\n")
+    sys.stdout.buffer.flush()
+
+
 class StdioModel:
     def chat_tools(self, messages, *, tools):
         request = json.dumps({"messages": messages, "tools": tools}, ensure_ascii=True).encode()
@@ -56,13 +66,20 @@ async def main() -> None:
                 raise ValueError("local archive truncated")
             output.write(chunk)
             remaining -= len(chunk)
-    source, _ = stage_source(archive, scratch, scope.source_digest, size)
+    status("archive")
+    try:
+        source, _ = stage_source(archive, scratch, scope.source_digest, size)
+    except Exception:
+        sys.stdout.buffer.write(b"PENTRAI_ERROR archive\n")
+        sys.stdout.buffer.flush()
+        raise
     archive.unlink()
     shutil.copyfile("/opt/pentrai/pentrai_mcp.py", scratch / "pentrai_mcp.py")
+    status("tools")
     server = subprocess.Popen([sys.executable, "/opt/pentrai/pentrai_server.py"],
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        result = await run_job(scope, StdioModel(), source_root=source)
+        result = await run_job(scope, StdioModel(), source_root=source, on_stage=status)
         encoded = json.dumps(result, ensure_ascii=True).encode()
         if len(encoded) > 1024 * 1024:
             raise ValueError("local result exceeds size limit")
@@ -78,4 +95,11 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception:
+        # Only an allowlisted code crosses stdio. Never relay traceback/source.
+        code = _stage if _stage in {"archive", "tools"} else "runner"
+        sys.stdout.buffer.write(b"PENTRAI_ERROR " + code.encode("ascii") + b"\n")
+        sys.stdout.buffer.flush()
+        raise SystemExit(1)

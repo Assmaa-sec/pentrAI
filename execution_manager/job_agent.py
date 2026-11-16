@@ -129,7 +129,10 @@ async def run_job(
     scope: JobScope, model: LLMClient, *,
     bridge_path: Path = Path("/job/tmp/pentrai_mcp.py"),
     source_root: Path = Path("/job/source"),
+    on_stage=None,
 ) -> dict[str, Any]:
+    if on_stage:
+        on_stage("archive")
     if scope.source_present:
         inventory = _source_inventory(source_root)
     else:
@@ -148,7 +151,11 @@ async def run_job(
         if datetime.now(timezone.utc) >= scope.expires_at:
             raise PermissionError("runner lease expired")
 
+    if on_stage:
+        on_stage("tools")
     await _wait_for_server()
+    if on_stage:
+        on_stage("analysis")
     limits = {"quick": LoopLimits(6, 12), "standard": LoopLimits(12, 32),
               "deep": LoopLimits(20, 64)}[scope.profile]
     async with HexStrikeMCP(bridge_path, "http://127.0.0.1:8888") as mcp:
