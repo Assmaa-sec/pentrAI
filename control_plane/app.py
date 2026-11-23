@@ -890,7 +890,18 @@ def create_app(settings: Settings) -> FastAPI:
         if report is None:
             raise HTTPException(status_code=404, detail="report not found")
         if format == "pdf":
-            payload = render_pdf(report.markdown)
+            detections = session.execute(
+                select(ScanFinding.title, ScanFinding.advisory_id, ScanFinding.dependency, ScanFinding.severity).where(
+                    ScanFinding.organization_id == organization_id,
+                    ScanFinding.scan_id == scan_id,
+                    ScanFinding.state == "detected",
+                ).order_by(ScanFinding.advisory_id, ScanFinding.dependency)
+            )
+            payload = render_pdf(
+                report.markdown, assessment_id=report.scan_id,
+                report_date=report.created_at.date(),
+                detections=[(row.title or f"{row.advisory_id}: {row.dependency}", row.severity) for row in detections],
+            )
             media_type = "application/pdf"
         elif format == "docx":
             payload = render_docx(report.markdown)

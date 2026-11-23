@@ -476,10 +476,20 @@ class ControlPlaneApiTests(unittest.TestCase):
         report = self.client.get(f"{prefix}/report")
         self.assertEqual(200, report.status_code)
         self.assertIn("Static report", report.json()["markdown"])
+        pdf = self.client.get(f"{prefix}/report.pdf")
+        self.assertEqual(200, pdf.status_code)
+        self.assertEqual("application/pdf", pdf.headers["content-type"])
+        self.assertEqual(f'attachment; filename="pentrai-{self.scan_id}.pdf"', pdf.headers["content-disposition"])
+        self.assertIn(b"(DETECTED FINDINGS)", pdf.content)
+        self.assertIn(b"(Unspecified)", pdf.content)
+        self.assertIn(self.scan_id.encode("ascii"), pdf.content)
         foreign = self.client.get(
             f"/v1/organizations/{self.other_org_id}/scans/{self.scan_id}/report"
         )
         self.assertEqual(404, foreign.status_code)
+        self.assertEqual(404, self.client.get(
+            f"/v1/organizations/{self.other_org_id}/scans/{self.scan_id}/report.pdf"
+        ).status_code)
 
     def test_scan_questions_read_persisted_state_only(self):
         path = f"/v1/organizations/{self.org_id}/scans/{self.scan_id}/questions"
